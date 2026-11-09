@@ -1,0 +1,74 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-apk
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Gerar a pasta android (flutter create)
+        run: |
+          flutter --version
+          flutter create . --platforms=android --project-name gymapp --org io.github.lpiq
+          sed -i 's/android:label="gymapp"/android:label="GymApp"/' android/app/src/main/AndroidManifest.xml
+
+      - name: Usar a chave de assinatura fixa (permite atualizar sem perder dados)
+        run: |
+          mkdir -p "$HOME/.android"
+          cp android-signing/debug.keystore "$HOME/.android/debug.keystore"
+          if [ -n "${ANDROID_SDK_HOME:-}" ]; then
+            mkdir -p "$ANDROID_SDK_HOME/.android"
+            cp android-signing/debug.keystore "$ANDROID_SDK_HOME/.android/debug.keystore"
+          fi
+
+      - run: flutter pub get
+
+      - run: flutter analyze --no-fatal-infos --no-fatal-warnings lib || true
+
+      - name: Compilar APK
+        run: flutter build apk --release --build-number ${{ github.run_number }}
+
+      - name: Conferir assinatura
+        run: |
+          keytool -list -v -keystore android-signing/debug.keystore -storepass android | grep SHA256 || true
+          APKSIGNER=$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          "$APKSIGNER" verify --print-certs build/app/outputs/flutter-apk/app-release.apk | grep SHA-256 || true
+          cp build/app/outputs/flutter-apk/app-release.apk GymApp.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GymApp-apk
+          path: GymApp.apk
+
+      - name: Publicar release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: GymApp (build ${{ github.run_number }})
+          body: |
+            APK gerado automaticamente a partir de ${{ github.sha }}.
+            No celular: baixe GymApp.apk abaixo e instale (permita "instalar apps desconhecidos" para o navegador).
+          files: GymApp.apk
+          make_latest: true

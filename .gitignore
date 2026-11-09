@@ -1,0 +1,23 @@
+# Flutter / Dart
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+pubspec.lock
+
+# Pastas de plataforma geradas no CI (flutter create)
+android/
+ios/
+web/
+linux/
+macos/
+windows/
+test/
+
+# IDEs
+.idea/
+.vscode/
+*.iml
