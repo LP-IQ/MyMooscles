@@ -258,11 +258,11 @@ class PlanPage extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextInput(controller: time, label: 'Horário (ex.: 12:00)'),
+              MooTextField(controller: time, label: 'Horário (ex.: 12:00)'),
               const SizedBox(height: 12),
-              TextInput(controller: title, label: 'Nome'),
+              MooTextField(controller: title, label: 'Nome'),
               const SizedBox(height: 12),
-              TextInput(controller: desc, label: 'O que comer', minLines: 2, maxLines: 5),
+              MooTextField(controller: desc, label: 'O que comer', minLines: 2, maxLines: 5),
             ],
           ),
         ),
@@ -298,7 +298,7 @@ class PlanPage extends StatelessWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Anotações'),
-        content: TextInput(controller: c, label: 'Anotações', minLines: 6, maxLines: 12),
+        content: MooTextField(controller: c, label: 'Anotações', minLines: 6, maxLines: 12),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
           FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Salvar')),
@@ -317,7 +317,7 @@ class PlanPage extends StatelessWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Restaurar backup'),
-        content: TextInput(controller: c, label: 'Cole aqui o texto do backup', minLines: 4, maxLines: 8),
+        content: MooTextField(controller: c, label: 'Cole aqui o texto do backup', minLines: 4, maxLines: 8),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
           FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Restaurar')),
@@ -470,7 +470,7 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(18, 8, 18, 24),
         children: [
-          TextInput(controller: _name, label: 'Nome', capitalization: TextCapitalization.words),
+          MooTextField(controller: _name, label: 'Nome', capitalization: TextCapitalization.words),
           const SizedBox(height: 12),
           Row(
             children: [
@@ -480,7 +480,7 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
             ],
           ),
           const SizedBox(height: 16),
-          Text('SEXO', style: t.label()),
+          Text('SEXO', style: t.kicker()),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
@@ -498,7 +498,7 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
             ],
           ),
           const SizedBox(height: 18),
-          Text('NÍVEL DE ATIVIDADE', style: t.label()),
+          Text('NÍVEL DE ATIVIDADE', style: t.kicker()),
           const SizedBox(height: 8),
           for (final entry in activityLevels.entries)
             Padding(
@@ -518,7 +518,7 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
               ),
             ),
           const SizedBox(height: 14),
-          Text('AJUSTE MANUAL (OPCIONAL)', style: t.label()),
+          Text('AJUSTE MANUAL (OPCIONAL)', style: t.kicker()),
           const SizedBox(height: 4),
           Text('Deixe em branco para usar o cálculo automático. Use quando o acompanhamento pedir ajuste.',
               style: t.body(13, color: t.muted)),

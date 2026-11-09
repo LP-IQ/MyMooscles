@@ -431,7 +431,7 @@ class _TemplateEditPageState extends State<TemplateEditPage> {
             children: [
               SizedBox(
                 width: 84,
-                child: TextInput(
+                child: MooTextField(
                   controller: _code,
                   label: 'Letra',
                   capitalization: TextCapitalization.characters,
@@ -439,7 +439,7 @@ class _TemplateEditPageState extends State<TemplateEditPage> {
                 ),
               ),
               const SizedBox(width: 12),
-              Expanded(child: TextInput(controller: _name, label: 'Nome', onChanged: (_) => _persist())),
+              Expanded(child: MooTextField(controller: _name, label: 'Nome', onChanged: (_) => _persist())),
             ],
           ),
           const SizedBox(height: 14),
@@ -573,7 +573,7 @@ class _ExerciseDialogState extends State<_ExerciseDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextInput(controller: _name, label: 'Nome', autofocus: widget.existing == null),
+            MooTextField(controller: _name, label: 'Nome', autofocus: widget.existing == null),
             const SizedBox(height: 12),
             Row(
               children: [
@@ -587,7 +587,7 @@ class _ExerciseDialogState extends State<_ExerciseDialog> {
             const SizedBox(height: 12),
             NumberField(controller: _load, label: 'Carga inicial (opcional)', suffix: 'kg'),
             const SizedBox(height: 12),
-            TextInput(controller: _note, label: 'Observação'),
+            MooTextField(controller: _note, label: 'Observação'),
           ],
         ),
       ),

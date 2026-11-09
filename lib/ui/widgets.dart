@@ -52,7 +52,7 @@ class PageHeader extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (kicker != null) Text(kicker!.toUpperCase(), style: t.label()),
+                if (kicker != null) Text(kicker!.toUpperCase(), style: t.kicker()),
                 Text(title, style: t.head(30, weight: FontWeight.w800)),
               ],
             ),
@@ -338,7 +338,7 @@ class NumberField extends StatelessWidget {
   }
 }
 
-class TextInput extends StatelessWidget {
+class MooTextField extends StatelessWidget {
   final TextEditingController controller;
   final String label;
   final String? hint;
@@ -347,7 +347,7 @@ class TextInput extends StatelessWidget {
   final bool autofocus;
   final TextCapitalization capitalization;
   final ValueChanged<String>? onChanged;
-  const TextInput({
+  const MooTextField({
     super.key,
     required this.controller,
     required this.label,

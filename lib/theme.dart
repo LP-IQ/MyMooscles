@@ -89,7 +89,7 @@ class MooTheme {
         height: height,
       );
 
-  TextStyle label() => body(12, weight: FontWeight.w700, color: muted).copyWith(letterSpacing: 0.8);
+  TextStyle kicker() => body(12, weight: FontWeight.w700, color: muted).copyWith(letterSpacing: 0.8);
 
   InputDecoration input(String label, {String? suffix, String? hint, bool dense = false}) {
     OutlineInputBorder b(Color c, double w) => OutlineInputBorder(

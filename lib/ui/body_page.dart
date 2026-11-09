@@ -360,7 +360,7 @@ class _BodyEntryPageState extends State<BodyEntryPage> {
           const SizedBox(height: 12),
           NumberField(controller: _waist, label: 'Cintura (altura do umbigo)', suffix: 'cm'),
           const SizedBox(height: 22),
-          Text('BIOIMPEDÂNCIA (OPCIONAL)', style: t.label()),
+          Text('BIOIMPEDÂNCIA (OPCIONAL)', style: t.kicker()),
           const SizedBox(height: 10),
           NumberField(controller: _fat, label: 'Gordura corporal', suffix: '%'),
           const SizedBox(height: 12),
@@ -368,7 +368,7 @@ class _BodyEntryPageState extends State<BodyEntryPage> {
           const SizedBox(height: 12),
           NumberField(controller: _visceral, label: 'Gordura visceral (índice)'),
           const SizedBox(height: 12),
-          TextInput(controller: _note, label: 'Observação'),
+          MooTextField(controller: _note, label: 'Observação'),
           const SizedBox(height: 16),
           Text(
             'Dica: pese-se ao acordar, depois do banheiro e antes de comer. Cintura toda sexta, em jejum.',

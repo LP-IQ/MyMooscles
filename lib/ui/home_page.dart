@@ -177,7 +177,7 @@ class _Greeting extends StatelessWidget {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(date.toUpperCase(), style: t.label()),
+          Text(date.toUpperCase(), style: t.kicker()),
           const SizedBox(height: 4),
           Text(name.isEmpty ? 'Olá!' : 'Olá, $name', style: t.head(32, weight: FontWeight.w800)),
         ],
@@ -240,7 +240,7 @@ class _TodayCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('TREINO DE HOJE', style: t.label()),
+                    Text('TREINO DE HOJE', style: t.kicker()),
                     const SizedBox(height: 6),
                     Text(tpl == null ? 'Dia de descanso' : tpl.name, style: t.head(24, weight: FontWeight.w800)),
                     const SizedBox(height: 4),
