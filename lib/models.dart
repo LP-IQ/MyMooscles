@@ -59,6 +59,8 @@ class Profile {
       );
 }
 
+List<String> _toStrings(dynamic v) => ((v as List?) ?? []).map((e) => e as String).toList();
+
 class ExerciseTemplate {
   String id;
   String name;
@@ -67,6 +69,9 @@ class ExerciseTemplate {
   int repMax;
   double? startLoad;
   String note;
+  List<String> alternatives; // variações que podem substituir este exercício
+  bool timed; // medido em segundos (prancha, isometria)
+  int warmups; // séries de aquecimento sugeridas
 
   ExerciseTemplate({
     String? id,
@@ -76,7 +81,11 @@ class ExerciseTemplate {
     this.repMax = 12,
     this.startLoad,
     this.note = '',
-  }) : id = id ?? newId();
+    List<String>? alternatives,
+    this.timed = false,
+    this.warmups = 1,
+  })  : id = id ?? newId(),
+        alternatives = alternatives ?? [];
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -86,6 +95,9 @@ class ExerciseTemplate {
         'repMax': repMax,
         'startLoad': startLoad,
         'note': note,
+        'alternatives': alternatives,
+        'timed': timed,
+        'warmups': warmups,
       };
 
   factory ExerciseTemplate.fromJson(Map<String, dynamic> j) => ExerciseTemplate(
@@ -96,6 +108,9 @@ class ExerciseTemplate {
         repMax: (j['repMax'] as num?)?.toInt() ?? 12,
         startLoad: _toDouble(j['startLoad']),
         note: (j['note'] as String?) ?? '',
+        alternatives: _toStrings(j['alternatives']),
+        timed: (j['timed'] as bool?) ?? false,
+        warmups: (j['warmups'] as num?)?.toInt() ?? 1,
       );
 }
 
@@ -136,42 +151,75 @@ class WorkoutTemplate {
 
 class SetLog {
   double? load;
-  int? reps;
+  int? reps; // repetições, ou segundos quando o exercício é por tempo
   bool done;
+  bool uni; // unilateral: carga de um lado só
+  String note;
 
-  SetLog({this.load, this.reps, this.done = false});
+  SetLog({this.load, this.reps, this.done = false, this.uni = false, this.note = ''});
 
-  Map<String, dynamic> toJson() => {'load': load, 'reps': reps, 'done': done};
+  Map<String, dynamic> toJson() => {'load': load, 'reps': reps, 'done': done, 'uni': uni, 'note': note};
 
   factory SetLog.fromJson(Map<String, dynamic> j) => SetLog(
         load: _toDouble(j['load']),
         reps: (j['reps'] as num?)?.toInt(),
         done: (j['done'] as bool?) ?? false,
+        uni: (j['uni'] as bool?) ?? false,
+        note: (j['note'] as String?) ?? '',
       );
 }
 
 class ExerciseLog {
   String exerciseId;
-  String name;
+  String name; // nome realmente feito (pode ser uma variação)
   List<SetLog> sets;
+  bool skipped;
+  bool timed;
+  int warmupsTotal;
+  int warmupsDone;
+  int? repMin; // usados quando o exercício não vem de um treino salvo
+  int? repMax;
 
-  ExerciseLog({required this.exerciseId, required this.name, List<SetLog>? sets})
-      : sets = sets ?? [];
+  ExerciseLog({
+    required this.exerciseId,
+    required this.name,
+    List<SetLog>? sets,
+    this.skipped = false,
+    this.timed = false,
+    this.warmupsTotal = 0,
+    this.warmupsDone = 0,
+    this.repMin,
+    this.repMax,
+  }) : sets = sets ?? [];
 
   List<SetLog> get doneSets => sets.where((s) => s.done && s.reps != null).toList();
+
+  double get volume => timed
+      ? 0.0
+      : doneSets.fold(0.0, (a, s) => a + (s.load ?? 0) * (s.reps ?? 0) * (s.uni ? 2 : 1));
 
   Map<String, dynamic> toJson() => {
         'exerciseId': exerciseId,
         'name': name,
         'sets': sets.map((s) => s.toJson()).toList(),
+        'skipped': skipped,
+        'timed': timed,
+        'warmupsTotal': warmupsTotal,
+        'warmupsDone': warmupsDone,
+        'repMin': repMin,
+        'repMax': repMax,
       };
 
   factory ExerciseLog.fromJson(Map<String, dynamic> j) => ExerciseLog(
         exerciseId: j['exerciseId'] as String,
         name: j['name'] as String,
-        sets: ((j['sets'] as List?) ?? [])
-            .map((s) => SetLog.fromJson(s as Map<String, dynamic>))
-            .toList(),
+        sets: ((j['sets'] as List?) ?? []).map((s) => SetLog.fromJson(s as Map<String, dynamic>)).toList(),
+        skipped: (j['skipped'] as bool?) ?? false,
+        timed: (j['timed'] as bool?) ?? false,
+        warmupsTotal: (j['warmupsTotal'] as num?)?.toInt() ?? 0,
+        warmupsDone: (j['warmupsDone'] as num?)?.toInt() ?? 0,
+        repMin: (j['repMin'] as num?)?.toInt(),
+        repMax: (j['repMax'] as num?)?.toInt(),
       );
 }
 
@@ -199,10 +247,8 @@ class Session {
 
   int get doneSetCount => exercises.fold(0, (a, e) => a + e.doneSets.length);
 
-  double get volume => exercises.fold(
-      0.0,
-      (a, e) => a +
-          e.doneSets.fold(0.0, (b, s) => b + (s.load ?? 0) * (s.reps ?? 0)));
+  /// Volume = soma de carga × repetições (unilateral conta os dois lados; exercícios por tempo ficam fora).
+  double get volume => exercises.fold(0.0, (a, e) => a + e.volume);
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -277,15 +323,64 @@ class Meal {
   String time;
   String title;
   String description;
+  double? kcal;
+  double? protein;
 
-  Meal({required this.time, required this.title, required this.description});
+  Meal({required this.time, required this.title, required this.description, this.kcal, this.protein});
 
-  Map<String, dynamic> toJson() => {'time': time, 'title': title, 'description': description};
+  /// Identifica a refeição no diário alimentar.
+  String get key => '$time $title';
+
+  Map<String, dynamic> toJson() =>
+      {'time': time, 'title': title, 'description': description, 'kcal': kcal, 'protein': protein};
 
   factory Meal.fromJson(Map<String, dynamic> j) => Meal(
         time: (j['time'] as String?) ?? '',
         title: (j['title'] as String?) ?? '',
         description: (j['description'] as String?) ?? '',
+        kcal: _toDouble(j['kcal']),
+        protein: _toDouble(j['protein']),
+      );
+}
+
+/// Registro do diário alimentar: check-in de uma refeição do plano ou um extra.
+class FoodEntry {
+  String id;
+  DateTime date; // dia (sem hora)
+  String mealKey; // Meal.key; vazio para extras
+  String status; // 'ok' (seguiu), 'troca' (trocou), 'pulou', 'extra'
+  String text;
+  double? kcal;
+  double? protein;
+
+  FoodEntry({
+    String? id,
+    required this.date,
+    this.mealKey = '',
+    required this.status,
+    this.text = '',
+    this.kcal,
+    this.protein,
+  }) : id = id ?? newId();
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'date': date.toIso8601String(),
+        'mealKey': mealKey,
+        'status': status,
+        'text': text,
+        'kcal': kcal,
+        'protein': protein,
+      };
+
+  factory FoodEntry.fromJson(Map<String, dynamic> j) => FoodEntry(
+        id: j['id'] as String,
+        date: _toDate(j['date']),
+        mealKey: (j['mealKey'] as String?) ?? '',
+        status: (j['status'] as String?) ?? 'ok',
+        text: (j['text'] as String?) ?? '',
+        kcal: _toDouble(j['kcal']),
+        protein: _toDouble(j['protein']),
       );
 }
 
@@ -296,19 +391,21 @@ class AppData {
   List<Session> sessions;
   List<BodyEntry> body;
   List<Meal> meals;
+  List<FoodEntry> food;
   String notes;
   Session? draft;
 
   AppData({
-    this.version = 1,
+    this.version = 2,
     required this.profile,
     required this.templates,
     required this.sessions,
     required this.body,
     required this.meals,
+    List<FoodEntry>? food,
     this.notes = '',
     this.draft,
-  });
+  }) : food = food ?? [];
 
   Map<String, dynamic> toJson() => {
         'version': version,
@@ -317,6 +414,7 @@ class AppData {
         'sessions': sessions.map((s) => s.toJson()).toList(),
         'body': body.map((b) => b.toJson()).toList(),
         'meals': meals.map((m) => m.toJson()).toList(),
+        'food': food.map((f) => f.toJson()).toList(),
         'notes': notes,
         'draft': draft?.toJson(),
       };
@@ -330,12 +428,9 @@ class AppData {
         sessions: ((j['sessions'] as List?) ?? [])
             .map((s) => Session.fromJson(s as Map<String, dynamic>))
             .toList(),
-        body: ((j['body'] as List?) ?? [])
-            .map((b) => BodyEntry.fromJson(b as Map<String, dynamic>))
-            .toList(),
-        meals: ((j['meals'] as List?) ?? [])
-            .map((m) => Meal.fromJson(m as Map<String, dynamic>))
-            .toList(),
+        body: ((j['body'] as List?) ?? []).map((b) => BodyEntry.fromJson(b as Map<String, dynamic>)).toList(),
+        meals: ((j['meals'] as List?) ?? []).map((m) => Meal.fromJson(m as Map<String, dynamic>)).toList(),
+        food: ((j['food'] as List?) ?? []).map((f) => FoodEntry.fromJson(f as Map<String, dynamic>)).toList(),
         notes: (j['notes'] as String?) ?? '',
         draft: j['draft'] == null ? null : Session.fromJson(j['draft'] as Map<String, dynamic>),
       );

@@ -5,6 +5,7 @@ import '../models.dart';
 import '../store.dart';
 import '../util.dart';
 import 'body_page.dart';
+import 'food_page.dart';
 import 'plan_page.dart';
 import 'widgets.dart';
 import 'workout_pages.dart';
@@ -32,6 +33,10 @@ class HomePage extends StatelessWidget {
         return ListView(
           padding: const EdgeInsets.fromLTRB(18, 16, 18, 28),
           children: [
+            const Padding(
+              padding: EdgeInsets.only(bottom: 14),
+              child: MooLogo(),
+            ),
             _Greeting(name: name, now: now, today: today),
             const SizedBox(height: 14),
             if (needsProfile || needsWeight) ...[
@@ -77,6 +82,8 @@ class HomePage extends StatelessWidget {
               const SizedBox(height: 14),
             ],
             _WeekCard(data: data, now: now),
+            const SizedBox(height: 14),
+            const FoodTodayCard(),
             const SizedBox(height: 14),
             MooCard(
               child: Column(

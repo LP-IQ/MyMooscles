@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../logic.dart';
 import '../models.dart';
+import '../seed.dart';
 import '../store.dart';
 import '../util.dart';
 import 'widgets.dart';
@@ -294,35 +295,39 @@ class _ExercisePreview extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = mt(context);
     final data = Store.instance.data;
-    final last = lastLogFor(data, ex.id);
-    final lastDate = lastDateFor(data, ex.id);
-    final sug = suggest(ex, last);
+    final last = lastLog(data, ex.id, ex.name);
+    final sug = suggest(ex, last?.log);
     return MooCard(
       padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(ex.name, style: t.body(16, weight: FontWeight.w700)),
-          Text('${ex.sets} × ${ex.repMin}–${ex.repMax}${ex.note.isEmpty ? '' : ' · ${ex.note}'}',
+          Text(
+              '${ex.sets} × ${ex.repMin}–${ex.repMax}${ex.timed ? ' s' : ''}${ex.note.isEmpty ? '' : ' · ${ex.note}'}',
               style: t.body(13, color: t.muted)),
           const SizedBox(height: 8),
-          _SuggestionBox(sug: sug, last: last, lastDate: lastDate),
+          SuggestionBox(sug: sug, last: last),
+          if (ex.alternatives.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text('Variações: ${ex.alternatives.join(', ')}', style: t.body(12, color: t.muted)),
+          ],
         ],
       ),
     );
   }
 }
 
-class _SuggestionBox extends StatelessWidget {
+class SuggestionBox extends StatelessWidget {
   final Suggestion sug;
-  final ExerciseLog? last;
-  final DateTime? lastDate;
-  const _SuggestionBox({required this.sug, required this.last, required this.lastDate});
+  final LastLog? last;
+  const SuggestionBox({super.key, required this.sug, required this.last});
 
   @override
   Widget build(BuildContext context) {
     final t = mt(context);
-    final color = sug.increase ? t.good : (t.key == 'noturno' ? t.acc : t.acc);
+    final color = sug.increase ? t.good : t.acc;
+    final l = last;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -330,11 +335,10 @@ class _SuggestionBox extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (last != null && lastDate != null)
+          if (l != null)
             Padding(
               padding: const EdgeInsets.only(bottom: 4),
-              child: Text('Última (${fmtDateShort(lastDate!)}): ${describeSets(last!.sets)}',
-                  style: t.body(12, color: t.muted)),
+              child: Text('Última (${fmtDateShort(l.date)}): ${describeLog(l.log)}', style: t.body(12, color: t.muted)),
             ),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -533,11 +537,14 @@ class _ExerciseDialogState extends State<_ExerciseDialog> {
   late final _max = TextEditingController(text: '${widget.existing?.repMax ?? 12}');
   late final _load = TextEditingController(
       text: widget.existing?.startLoad == null ? '' : fmtNum(widget.existing!.startLoad!));
+  late final _warm = TextEditingController(text: '${widget.existing?.warmups ?? 1}');
   late final _note = TextEditingController(text: widget.existing?.note ?? '');
+  late final _alts = TextEditingController(text: (widget.existing?.alternatives ?? const <String>[]).join('\n'));
+  late bool _timed = widget.existing?.timed ?? false;
 
   @override
   void dispose() {
-    for (final c in [_name, _sets, _min, _max, _load, _note]) {
+    for (final c in [_name, _sets, _min, _max, _load, _warm, _note, _alts]) {
       c.dispose();
     }
     super.dispose();
@@ -547,13 +554,14 @@ class _ExerciseDialogState extends State<_ExerciseDialog> {
     final name = _name.text.trim();
     if (name.isEmpty) return;
     final sets = clampInt(parseInt(_sets.text) ?? 3, 1, 10);
-    var mn = clampInt(parseInt(_min.text) ?? 8, 1, 100);
-    var mx = clampInt(parseInt(_max.text) ?? 12, 1, 100);
+    var mn = clampInt(parseInt(_min.text) ?? 8, 1, 600);
+    var mx = clampInt(parseInt(_max.text) ?? 12, 1, 600);
     if (mx < mn) {
       final tmp = mn;
       mn = mx;
       mx = tmp;
     }
+    final alts = _alts.text.split('\n').map((x) => x.trim()).where((x) => x.isNotEmpty).toList();
     final e = widget.existing ?? ExerciseTemplate(name: name);
     e
       ..name = name
@@ -561,6 +569,9 @@ class _ExerciseDialogState extends State<_ExerciseDialog> {
       ..repMin = mn
       ..repMax = mx
       ..startLoad = parseNum(_load.text)
+      ..warmups = clampInt(parseInt(_warm.text) ?? 0, 0, 5)
+      ..timed = _timed
+      ..alternatives = alts
       ..note = _note.text.trim();
     Navigator.pop(context, e);
   }
@@ -579,15 +590,29 @@ class _ExerciseDialogState extends State<_ExerciseDialog> {
               children: [
                 Expanded(child: NumberField(controller: _sets, label: 'Séries', decimal: false)),
                 const SizedBox(width: 8),
-                Expanded(child: NumberField(controller: _min, label: 'Reps mín.', decimal: false)),
+                Expanded(child: NumberField(controller: _min, label: _timed ? 'Seg mín.' : 'Reps mín.', decimal: false)),
                 const SizedBox(width: 8),
-                Expanded(child: NumberField(controller: _max, label: 'Reps máx.', decimal: false)),
+                Expanded(child: NumberField(controller: _max, label: _timed ? 'Seg máx.' : 'Reps máx.', decimal: false)),
               ],
             ),
             const SizedBox(height: 12),
-            NumberField(controller: _load, label: 'Carga inicial (opcional)', suffix: 'kg'),
-            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(child: NumberField(controller: _load, label: 'Carga inicial', suffix: 'kg')),
+                const SizedBox(width: 8),
+                Expanded(child: NumberField(controller: _warm, label: 'Aquecimento', decimal: false)),
+              ],
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Por tempo (segundos)'),
+              subtitle: const Text('Prancha, isometria. Fica fora do volume.'),
+              value: _timed,
+              onChanged: (v) => setState(() => _timed = v),
+            ),
             MooTextField(controller: _note, label: 'Observação'),
+            const SizedBox(height: 12),
+            MooTextField(controller: _alts, label: 'Variações (uma por linha)', minLines: 2, maxLines: 6),
           ],
         ),
       ),
@@ -635,7 +660,7 @@ class _SessionPageState extends State<SessionPage> {
     super.dispose();
   }
 
-  bool _complete(ExerciseLog e) => e.sets.isNotEmpty && e.sets.every((s) => s.done);
+  bool _complete(ExerciseLog e) => e.skipped || (e.sets.isNotEmpty && e.sets.every((s) => s.done));
 
   ExerciseLog? _firstIncomplete(Session s, {String? after}) {
     var passed = after == null;
@@ -773,7 +798,9 @@ class _SessionPageState extends State<SessionPage> {
                     child: Container(
                       height: 6,
                       decoration: BoxDecoration(
-                        color: _complete(s.exercises[i]) ? t.acc : t.surf2,
+                        color: s.exercises[i].skipped
+                            ? t.muted.withAlpha(110)
+                            : (_complete(s.exercises[i]) ? t.acc : t.surf2),
                         borderRadius: BorderRadius.circular(3),
                       ),
                     ),
@@ -790,7 +817,7 @@ class _SessionPageState extends State<SessionPage> {
                   Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: _ExerciseCard(
-                      key: ValueKey(log.exerciseId),
+                      key: ValueKey(log),
                       log: log,
                       template: _findEx(template, log.exerciseId),
                       open: _open == log.exerciseId,
@@ -800,14 +827,47 @@ class _SessionPageState extends State<SessionPage> {
                         setState(() {});
                       },
                       onSetDone: () => _onSetDone(s, log),
+                      onSkip: () {
+                        log.skipped = !log.skipped;
+                        store.saveDraft();
+                        setState(() {
+                          if (log.skipped && _open == log.exerciseId) {
+                            _open = _firstIncomplete(s, after: log.exerciseId)?.exerciseId;
+                          }
+                        });
+                      },
                     ),
                   ),
+                MooButton(
+                  label: 'Adicionar exercício',
+                  icon: Icons.add,
+                  primary: false,
+                  expand: true,
+                  onPressed: () => _addExercise(s),
+                ),
               ],
             ),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _addExercise(Session s) async {
+    final r = await showDialog<_NewExercise>(
+      context: context,
+      builder: (_) => _AddExerciseDialog(templateCode: s.templateCode),
+    );
+    if (r == null) return;
+    await Store.instance.addExerciseToDraft(
+      name: r.name,
+      sets: r.sets,
+      repMin: r.repMin,
+      repMax: r.repMax,
+      timed: r.timed,
+      addToTemplate: r.addToTemplate,
+    );
+    if (mounted) setState(() => _open = s.exercises.last.exerciseId);
   }
 
   ExerciseTemplate? _findEx(WorkoutTemplate? tpl, String id) {
@@ -921,6 +981,7 @@ class _ExerciseCard extends StatelessWidget {
   final VoidCallback onToggle;
   final VoidCallback onChanged;
   final VoidCallback onSetDone;
+  final VoidCallback onSkip;
   const _ExerciseCard({
     super.key,
     required this.log,
@@ -929,56 +990,217 @@ class _ExerciseCard extends StatelessWidget {
     required this.onToggle,
     required this.onChanged,
     required this.onSetDone,
+    required this.onSkip,
   });
+
+  Future<void> _chooseVariant(BuildContext context) async {
+    final t = mt(context);
+    final tpl = template;
+    final options = <String>[
+      if (tpl != null) tpl.name,
+      ...?tpl?.alternatives,
+      if (tpl == null) ...(defaultAlternatives[log.name] ?? const <String>[]),
+    ].where((x) => x != log.name).toSet().toList();
+    final chosen = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          children: [
+            Text('Trocar ${log.name}', style: t.head(20, weight: FontWeight.w800)),
+            const SizedBox(height: 4),
+            Text('Cada variação guarda o próprio histórico de cargas.', style: t.body(13, color: t.muted)),
+            const SizedBox(height: 12),
+            for (final o in options)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: MooCard(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  onTap: () => Navigator.pop(ctx, o),
+                  child: Row(
+                    children: [
+                      Expanded(child: Text(o, style: t.body(15, weight: FontWeight.w600))),
+                      if (tpl != null && o == tpl.name) Text('original', style: t.body(12, color: t.muted)),
+                    ],
+                  ),
+                ),
+              ),
+            MooButton(
+              label: 'Outro exercício…',
+              icon: Icons.edit_outlined,
+              primary: false,
+              expand: true,
+              onPressed: () => Navigator.pop(ctx, '__outro__'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (chosen == null || !context.mounted) return;
+    var name = chosen;
+    if (chosen == '__outro__') {
+      final c = TextEditingController();
+      final typed = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Outro exercício'),
+          content: MooTextField(controller: c, label: 'Nome do exercício', autofocus: true),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, c.text.trim()), child: const Text('Trocar')),
+          ],
+        ),
+      );
+      if (typed == null || typed.isEmpty) return;
+      name = typed;
+      // Guarda a variação nova no treino para aparecer da próxima vez.
+      if (tpl != null && !tpl.alternatives.contains(typed) && typed != tpl.name) tpl.alternatives.add(typed);
+    }
+    switchVariant(Store.instance.data, log, template, name);
+    onChanged();
+  }
 
   @override
   Widget build(BuildContext context) {
     final t = mt(context);
     final data = Store.instance.data;
-    final ex = template;
-    final last = lastLogFor(data, log.exerciseId);
-    final lastDate = lastDateFor(data, log.exerciseId);
-    final sug = ex == null ? null : suggest(ex, last);
+    final ex = effectiveTemplate(log, template);
+    final last = lastLog(data, log.exerciseId, log.name);
+    final sug = suggest(ex, last?.log);
     final doneCount = log.sets.where((s) => s.done).length;
     final complete = log.sets.isNotEmpty && doneCount == log.sets.length;
-    final repHint = ex == null ? 'reps' : '${ex.repMin}–${ex.repMax}';
-    final info = ex == null ? '' : '${ex.sets} × ${ex.repMin}–${ex.repMax}${ex.note.isEmpty ? '' : ' · ${ex.note}'}';
+    final unit = log.timed ? ' s' : '';
+    final isVariant = template != null && template!.name != log.name;
+    final info = [
+      '${ex.sets} × ${ex.repMin}–${ex.repMax}$unit',
+      if (isVariant) 'no lugar de ${template!.name}',
+      if (ex.note.isNotEmpty && !isVariant) ex.note,
+    ].join(' · ');
+
+    Widget status;
+    if (log.skipped) {
+      status = Text('Pulado', style: t.body(12, weight: FontWeight.w700, color: t.muted));
+    } else if (complete) {
+      status = Icon(Icons.check_circle, color: t.good);
+    } else {
+      status = Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: t.surf2,
+          borderRadius: BorderRadius.circular(999),
+          border: t.borderWidth >= 2 ? Border.all(color: t.line, width: 2) : null,
+        ),
+        child: Text('$doneCount/${log.sets.length}', style: t.body(12, weight: FontWeight.w700)),
+      );
+    }
 
     final header = InkWell(
       onTap: onToggle,
       borderRadius: BorderRadius.circular(t.radius),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+        padding: const EdgeInsets.fromLTRB(16, 12, 4, 12),
         child: Row(
           children: [
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(log.name, style: open ? t.head(20, weight: FontWeight.w800) : t.body(16, weight: FontWeight.w700)),
-                  if (info.isNotEmpty) Text(info, style: t.body(13, color: t.muted)),
-                  if (!open && sug != null && !complete)
-                    Text(sug.text, style: t.body(12, color: t.muted), maxLines: 1, overflow: TextOverflow.ellipsis),
-                ],
+              child: Opacity(
+                opacity: log.skipped ? 0.55 : 1,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(log.name,
+                        style: open && !log.skipped ? t.head(20, weight: FontWeight.w800) : t.body(16, weight: FontWeight.w700)),
+                    Text(info, style: t.body(13, color: t.muted)),
+                    if (!open && !complete && !log.skipped)
+                      Text(sug.text, style: t.body(12, color: t.muted), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  ],
+                ),
               ),
             ),
             const SizedBox(width: 8),
-            complete
-                ? Icon(Icons.check_circle, color: t.good)
-                : Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: t.surf2,
-                      borderRadius: BorderRadius.circular(999),
-                      border: t.borderWidth >= 2 ? Border.all(color: t.line, width: 2) : null,
-                    ),
-                    child: Text('$doneCount/${log.sets.length}', style: t.body(12, weight: FontWeight.w700)),
-                  ),
-            Icon(open ? Icons.expand_less : Icons.expand_more, color: t.muted),
+            status,
+            PopupMenuButton<String>(
+              tooltip: 'Opções do exercício',
+              icon: Icon(Icons.more_vert, color: t.muted),
+              onSelected: (v) {
+                if (v == 'trocar') _chooseVariant(context);
+                if (v == 'pular') onSkip();
+                if (v == 'tempo') {
+                  log.timed = !log.timed;
+                  onChanged();
+                }
+              },
+              itemBuilder: (_) => [
+                const PopupMenuItem<String>(value: 'trocar', child: Text('Trocar exercício')),
+                PopupMenuItem<String>(value: 'pular', child: Text(log.skipped ? 'Retomar exercício' : 'Pular hoje')),
+                PopupMenuItem<String>(
+                    value: 'tempo', child: Text(log.timed ? 'Medir por repetições' : 'Medir por tempo (s)')),
+              ],
+            ),
           ],
         ),
       ),
     );
+
+    Widget body;
+    if (log.skipped) {
+      body = Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+        child: Row(
+          children: [
+            Expanded(child: Text('Pulado hoje. Não entra no histórico.', style: t.body(13, color: t.muted))),
+            TextButton(onPressed: onSkip, child: const Text('Retomar')),
+          ],
+        ),
+      );
+    } else {
+      body = Padding(
+        padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: SuggestionBox(sug: sug, last: last),
+            ),
+            const SizedBox(height: 8),
+            _WarmupRow(log: log, onChanged: onChanged),
+            for (var i = 0; i < log.sets.length; i++)
+              _SetRow(
+                key: ObjectKey(log.sets[i]),
+                index: i,
+                set: log.sets[i],
+                timed: log.timed,
+                repHint: '${ex.repMin}–${ex.repMax}',
+                onChanged: onChanged,
+                onDone: onSetDone,
+                onRemove: () {
+                  log.sets.removeAt(i);
+                  onChanged();
+                },
+              ),
+            Row(
+              children: [
+                TextButton.icon(
+                  onPressed: () {
+                    final prev = log.sets.isEmpty ? null : log.sets.last;
+                    log.sets.add(SetLog(load: prev?.load, uni: prev?.uni ?? false));
+                    onChanged();
+                  },
+                  icon: const Icon(Icons.add),
+                  label: const Text('Série'),
+                ),
+                Expanded(
+                  child: Text('Toque no nº da série: unilateral ou comentário',
+                      textAlign: TextAlign.right, style: t.body(11, color: t.muted)),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
 
     return DecoratedBox(
       decoration: t.card(),
@@ -988,55 +1210,84 @@ class _ExerciseCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             header,
-            if (open)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (sug != null) ...[
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: _SuggestionBox(sug: sug, last: last, lastDate: lastDate),
-                      ),
-                      const SizedBox(height: 8),
-                    ],
-                    for (var i = 0; i < log.sets.length; i++)
-                      _SetRow(
-                        key: ObjectKey(log.sets[i]),
-                        index: i,
-                        set: log.sets[i],
-                        repHint: repHint,
-                        onChanged: onChanged,
-                        onDone: onSetDone,
-                      ),
-                    Row(
-                      children: [
-                        TextButton.icon(
-                          onPressed: () {
-                            final prev = log.sets.isEmpty ? null : log.sets.last;
-                            log.sets.add(SetLog(load: prev?.load));
-                            onChanged();
-                          },
-                          icon: const Icon(Icons.add),
-                          label: const Text('Série'),
-                        ),
-                        if (log.sets.isNotEmpty)
-                          TextButton.icon(
-                            onPressed: () {
-                              log.sets.removeLast();
-                              onChanged();
-                            },
-                            icon: const Icon(Icons.remove),
-                            label: const Text('Remover'),
-                          ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+            if (open) body,
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Quadradinhos das séries de aquecimento (carga leve, não contam no volume).
+class _WarmupRow extends StatelessWidget {
+  final ExerciseLog log;
+  final VoidCallback onChanged;
+  const _WarmupRow({required this.log, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final t = mt(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 0, 0, 6),
+      child: Row(
+        children: [
+          Icon(Icons.local_fire_department_outlined, size: 16, color: t.muted),
+          const SizedBox(width: 4),
+          Text('Aquecimento', style: t.body(12, weight: FontWeight.w600, color: t.muted)),
+          const SizedBox(width: 8),
+          for (var i = 0; i < log.warmupsTotal; i++)
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: Semantics(
+                button: true,
+                label: 'Aquecimento ${i + 1}',
+                checked: i < log.warmupsDone,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(6),
+                  onTap: () {
+                    log.warmupsDone = i < log.warmupsDone ? i : i + 1;
+                    onChanged();
+                  },
+                  child: Container(
+                    width: 26,
+                    height: 26,
+                    decoration: BoxDecoration(
+                      color: i < log.warmupsDone ? t.muted : Colors.transparent,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: t.muted, width: 2),
+                    ),
+                    child: i < log.warmupsDone ? Icon(Icons.check, size: 16, color: t.surf) : null,
+                  ),
+                ),
+              ),
+            ),
+          const Spacer(),
+          IconButton(
+            tooltip: 'Menos aquecimento',
+            visualDensity: VisualDensity.compact,
+            iconSize: 18,
+            onPressed: log.warmupsTotal == 0
+                ? null
+                : () {
+                    log.warmupsTotal--;
+                    if (log.warmupsDone > log.warmupsTotal) log.warmupsDone = log.warmupsTotal;
+                    onChanged();
+                  },
+            icon: const Icon(Icons.remove),
+          ),
+          IconButton(
+            tooltip: 'Mais aquecimento',
+            visualDensity: VisualDensity.compact,
+            iconSize: 18,
+            onPressed: log.warmupsTotal >= 5
+                ? null
+                : () {
+                    log.warmupsTotal++;
+                    onChanged();
+                  },
+            icon: const Icon(Icons.add),
+          ),
+        ],
       ),
     );
   }
@@ -1045,16 +1296,20 @@ class _ExerciseCard extends StatelessWidget {
 class _SetRow extends StatefulWidget {
   final int index;
   final SetLog set;
+  final bool timed;
   final String repHint;
   final VoidCallback onChanged;
   final VoidCallback onDone;
+  final VoidCallback onRemove;
   const _SetRow({
     super.key,
     required this.index,
     required this.set,
+    required this.timed,
     required this.repHint,
     required this.onChanged,
     required this.onDone,
+    required this.onRemove,
   });
 
   @override
@@ -1087,6 +1342,72 @@ class _SetRowState extends State<_SetRow> {
     );
   }
 
+  Future<void> _options() async {
+    final s = widget.set;
+    final t = mt(context);
+    final note = TextEditingController(text: s.note);
+    var uni = s.uni;
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) => Padding(
+          padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + MediaQuery.viewInsetsOf(ctx).bottom),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Série ${widget.index + 1}', style: t.head(20, weight: FontWeight.w800)),
+              const SizedBox(height: 8),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Unilateral'),
+                subtitle: const Text('Carga de um lado só. Progressão separada; no volume conta os dois lados.'),
+                value: uni,
+                onChanged: (v) => setSheet(() => uni = v),
+              ),
+              const SizedBox(height: 8),
+              MooTextField(controller: note, label: 'Comentário', hint: 'ex.: drop, falha, dor no punho', maxLines: 3),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: MooButton(
+                      label: 'Remover série',
+                      icon: Icons.delete_outline,
+                      primary: false,
+                      expand: true,
+                      onPressed: () => Navigator.pop(ctx, 'remove'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: MooButton(
+                      label: 'Pronto',
+                      icon: Icons.check,
+                      expand: true,
+                      onPressed: () => Navigator.pop(ctx, 'ok'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (action == 'remove') {
+      widget.onRemove();
+      return;
+    }
+    // Fechar arrastando também salva o que foi alterado.
+    s.uni = uni;
+    s.note = note.text.trim();
+    widget.onChanged();
+    if (mounted) setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = mt(context);
@@ -1099,64 +1420,192 @@ class _SetRowState extends State<_SetRow> {
         color: s.done && t.key == 'noturno' ? t.surf2 : Colors.transparent,
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SizedBox(
-            width: 26,
-            child: Text('${widget.index + 1}',
-                textAlign: TextAlign.center, style: t.body(15, weight: FontWeight.w700, color: t.muted)),
-          ),
-          const SizedBox(width: 4),
-          Expanded(
-            child: _field(context, _load, 'kg', null, true, (v) {
-              s.load = parseNum(v);
-              widget.onChanged();
-            }),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: _field(context, _reps, 'reps', widget.repHint, false, (v) {
-              s.reps = parseInt(v);
-              widget.onChanged();
-            }),
-          ),
-          const SizedBox(width: 8),
-          Semantics(
-            button: true,
-            label: s.done ? 'Desmarcar série ${widget.index + 1}' : 'Marcar série ${widget.index + 1} como feita',
-            child: Material(
-              color: s.done ? t.acc : Colors.transparent,
-              shape: RoundedRectangleBorder(
-                borderRadius: radius,
-                side: BorderSide(
-                  color: s.done
-                      ? (t.borderWidth >= 2 ? t.line : t.acc)
-                      : (t.borderWidth >= 2 ? t.line : (t.isDark ? const Color(0xFF3A3F48) : t.line)),
-                  width: 2,
+          Row(
+            children: [
+              Semantics(
+                button: true,
+                label: 'Opções da série ${widget.index + 1}',
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: _options,
+                  child: SizedBox(
+                    width: 34,
+                    height: 48,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text('${widget.index + 1}', style: t.body(15, weight: FontWeight.w700, color: t.muted)),
+                        if (s.uni)
+                          Container(
+                            margin: const EdgeInsets.only(top: 2),
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            decoration: BoxDecoration(color: t.acc, borderRadius: BorderRadius.circular(4)),
+                            child: Text('UNI', style: t.body(9, weight: FontWeight.w800, color: t.onAcc)),
+                          )
+                        else if (s.note.isNotEmpty)
+                          Icon(Icons.chat_bubble_outline, size: 12, color: t.muted),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-              child: InkWell(
-                borderRadius: radius,
-                onTap: () {
-                  if (!s.done && s.reps == null) {
-                    showSnack(context, 'Informe as repetições antes de marcar a série.');
-                    return;
-                  }
-                  s.done = !s.done;
-                  FocusScope.of(context).unfocus();
+              const SizedBox(width: 2),
+              Expanded(
+                child: _field(context, _load, s.uni ? 'kg (1 lado)' : 'kg', null, true, (v) {
+                  s.load = parseNum(v);
                   widget.onChanged();
-                  if (s.done) widget.onDone();
-                },
-                child: SizedBox(
-                  width: 52,
-                  height: 48,
-                  child: Icon(Icons.check_rounded, size: 26, color: s.done ? t.onAcc : t.muted),
+                }),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _field(context, _reps, widget.timed ? 'seg' : 'reps', widget.repHint, false, (v) {
+                  s.reps = parseInt(v);
+                  widget.onChanged();
+                }),
+              ),
+              const SizedBox(width: 8),
+              Semantics(
+                button: true,
+                label: s.done ? 'Desmarcar série ${widget.index + 1}' : 'Marcar série ${widget.index + 1} como feita',
+                child: Material(
+                  color: s.done ? t.acc : Colors.transparent,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: radius,
+                    side: BorderSide(
+                      color: s.done
+                          ? (t.borderWidth >= 2 ? t.line : t.acc)
+                          : (t.borderWidth >= 2 ? t.line : (t.isDark ? const Color(0xFF3A3F48) : t.line)),
+                      width: 2,
+                    ),
+                  ),
+                  child: InkWell(
+                    borderRadius: radius,
+                    onTap: () {
+                      if (!s.done && s.reps == null) {
+                        showSnack(context, widget.timed
+                            ? 'Informe os segundos antes de marcar a série.'
+                            : 'Informe as repetições antes de marcar a série.');
+                        return;
+                      }
+                      setState(() => s.done = !s.done);
+                      FocusScope.of(context).unfocus();
+                      widget.onChanged();
+                      if (s.done) widget.onDone();
+                    },
+                    child: SizedBox(
+                      width: 52,
+                      height: 48,
+                      child: Icon(Icons.check_rounded, size: 26, color: s.done ? t.onAcc : t.muted),
+                    ),
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
+          if (s.note.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(38, 2, 0, 0),
+              child: Text(s.note, style: t.body(12, color: t.muted).copyWith(fontStyle: FontStyle.italic)),
+            ),
         ],
       ),
+    );
+  }
+}
+
+/// Dados de um exercício adicionado durante o treino.
+class _NewExercise {
+  final String name;
+  final int sets;
+  final int repMin;
+  final int repMax;
+  final bool timed;
+  final bool addToTemplate;
+  const _NewExercise(this.name, this.sets, this.repMin, this.repMax, this.timed, this.addToTemplate);
+}
+
+class _AddExerciseDialog extends StatefulWidget {
+  final String templateCode;
+  const _AddExerciseDialog({required this.templateCode});
+
+  @override
+  State<_AddExerciseDialog> createState() => _AddExerciseDialogState();
+}
+
+class _AddExerciseDialogState extends State<_AddExerciseDialog> {
+  final _name = TextEditingController();
+  final _sets = TextEditingController(text: '3');
+  final _min = TextEditingController(text: '10');
+  final _max = TextEditingController(text: '12');
+  bool _timed = false;
+  bool _keep = false;
+
+  @override
+  void dispose() {
+    for (final c in [_name, _sets, _min, _max]) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Adicionar exercício'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            MooTextField(controller: _name, label: 'Nome', autofocus: true),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(child: NumberField(controller: _sets, label: 'Séries', decimal: false)),
+                const SizedBox(width: 8),
+                Expanded(child: NumberField(controller: _min, label: _timed ? 'Seg mín.' : 'Reps mín.', decimal: false)),
+                const SizedBox(width: 8),
+                Expanded(child: NumberField(controller: _max, label: _timed ? 'Seg máx.' : 'Reps máx.', decimal: false)),
+              ],
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Por tempo (segundos)'),
+              value: _timed,
+              onChanged: (v) => setState(() => _timed = v),
+            ),
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text('Salvar também no treino ${widget.templateCode}'),
+              value: _keep,
+              onChanged: (v) => setState(() => _keep = v ?? false),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+        FilledButton(
+          onPressed: () {
+            final name = _name.text.trim();
+            if (name.isEmpty) return;
+            var mn = clampInt(parseInt(_min.text) ?? 10, 1, 600);
+            var mx = clampInt(parseInt(_max.text) ?? 12, 1, 600);
+            if (mx < mn) {
+              final tmp = mn;
+              mn = mx;
+              mx = tmp;
+            }
+            Navigator.pop(
+              context,
+              _NewExercise(name, clampInt(parseInt(_sets.text) ?? 3, 1, 10), mn, mx, _timed, _keep),
+            );
+          },
+          child: const Text('Adicionar'),
+        ),
+      ],
     );
   }
 }
@@ -1228,7 +1677,13 @@ class SessionViewPage extends StatelessWidget {
                   children: [
                     Text(e.name, style: t.body(15, weight: FontWeight.w700)),
                     const SizedBox(height: 2),
-                    Text(describeSets(e.sets), style: t.body(14, color: t.muted)),
+                    Text(describeLog(e), style: t.body(14, color: t.muted)),
+                    if (e.warmupsDone > 0)
+                      Text('+ ${e.warmupsDone} de aquecimento', style: t.body(12, color: t.muted)),
+                    for (var i = 0; i < e.sets.length; i++)
+                      if (e.sets[i].note.isNotEmpty)
+                        Text('Série ${i + 1}: ${e.sets[i].note}',
+                            style: t.body(12, color: t.muted).copyWith(fontStyle: FontStyle.italic)),
                   ],
                 ),
               ),

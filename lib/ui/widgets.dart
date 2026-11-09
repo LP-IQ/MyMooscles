@@ -577,3 +577,54 @@ class _ChartPainter extends CustomPainter {
   bool shouldRepaint(covariant _ChartPainter old) =>
       old.points != points || old.line != line || old.lineColor != lineColor;
 }
+
+/// Logo do app: selo com "M" e o nome com o "Moo" destacado.
+class MooLogo extends StatelessWidget {
+  final double size;
+  const MooLogo({super.key, this.size = 34});
+
+  @override
+  Widget build(BuildContext context) {
+    final t = mt(context);
+    return Semantics(
+      label: 'MyMooscles',
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              color: t.acc,
+              borderRadius: BorderRadius.circular(size * 0.3),
+              border: t.borderWidth >= 2 ? Border.all(color: t.line, width: 2) : null,
+              boxShadow: t.shadowFor(2),
+            ),
+            child: Stack(
+              children: [
+                Positioned(
+                  right: size * 0.1,
+                  top: size * 0.1,
+                  child: Container(
+                    width: size * 0.22,
+                    height: size * 0.18,
+                    decoration: BoxDecoration(color: t.onAcc.withAlpha(90), borderRadius: BorderRadius.circular(size)),
+                  ),
+                ),
+                Center(child: Text('M', style: t.head(size * 0.58, weight: FontWeight.w800, color: t.onAcc))),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          ExcludeSemantics(
+            child: Text.rich(TextSpan(children: [
+              TextSpan(text: 'My', style: t.head(size * 0.62, weight: FontWeight.w800)),
+              TextSpan(text: 'Moo', style: t.head(size * 0.62, weight: FontWeight.w800, color: t.acc)),
+              TextSpan(text: 'scles', style: t.head(size * 0.62, weight: FontWeight.w800)),
+            ])),
+          ),
+        ],
+      ),
+    );
+  }
+}

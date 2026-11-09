@@ -154,6 +154,17 @@ class PlanPage extends StatelessWidget {
                             Text(m.title, style: t.body(15, weight: FontWeight.w700)),
                             const SizedBox(height: 2),
                             Text(m.description, style: t.body(14, color: t.muted, height: 1.35)),
+                            if (m.kcal != null || m.protein != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Text(
+                                  [
+                                    if (m.kcal != null) '~${fmtNum(m.kcal!, 0)} kcal',
+                                    if (m.protein != null) '${fmtNum(m.protein!, 0)} g proteína',
+                                  ].join(' · '),
+                                  style: t.body(12, weight: FontWeight.w600, color: t.muted),
+                                ),
+                              ),
                           ],
                         ),
                       ),
@@ -237,7 +248,7 @@ class PlanPage extends StatelessWidget {
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(18, 18, 18, 0),
-              child: Text('MyMooscles 0.2 · dados salvos só neste celular.', style: t.body(12, color: t.muted)),
+              child: Text('MyMooscles 0.3 · dados salvos só neste celular.', style: t.body(12, color: t.muted)),
             ),
           ],
         );
@@ -250,6 +261,8 @@ class PlanPage extends StatelessWidget {
     final time = TextEditingController(text: meal?.time ?? '');
     final title = TextEditingController(text: meal?.title ?? '');
     final desc = TextEditingController(text: meal?.description ?? '');
+    final kcal = TextEditingController(text: meal?.kcal == null ? '' : fmtNum(meal!.kcal!, 0));
+    final prot = TextEditingController(text: meal?.protein == null ? '' : fmtNum(meal!.protein!, 0));
     final result = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -263,6 +276,14 @@ class PlanPage extends StatelessWidget {
               MooTextField(controller: title, label: 'Nome'),
               const SizedBox(height: 12),
               MooTextField(controller: desc, label: 'O que comer', minLines: 2, maxLines: 5),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(child: NumberField(controller: kcal, label: 'kcal', decimal: false)),
+                  const SizedBox(width: 8),
+                  Expanded(child: NumberField(controller: prot, label: 'Proteína', suffix: 'g', decimal: false)),
+                ],
+              ),
             ],
           ),
         ),
@@ -277,12 +298,20 @@ class PlanPage extends StatelessWidget {
       store.data.meals.remove(meal);
     } else if (result == 'ok') {
       if (meal == null) {
-        store.data.meals.add(Meal(time: time.text.trim(), title: title.text.trim(), description: desc.text.trim()));
+        store.data.meals.add(Meal(
+          time: time.text.trim(),
+          title: title.text.trim(),
+          description: desc.text.trim(),
+          kcal: parseNum(kcal.text),
+          protein: parseNum(prot.text),
+        ));
       } else {
         meal
           ..time = time.text.trim()
           ..title = title.text.trim()
-          ..description = desc.text.trim();
+          ..description = desc.text.trim()
+          ..kcal = parseNum(kcal.text)
+          ..protein = parseNum(prot.text);
       }
       store.data.meals.sort((a, b) => a.time.compareTo(b.time));
     } else {

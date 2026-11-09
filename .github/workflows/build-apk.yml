@@ -41,6 +41,18 @@ jobs:
 
       - run: flutter pub get
 
+      - name: Ícone do app (se falhar, segue com o ícone padrão)
+        continue-on-error: true
+        run: |
+          cp pubspec.yaml /tmp/pubspec.bak
+          if flutter pub add --dev flutter_launcher_icons && dart run flutter_launcher_icons -f flutter_launcher_icons.yaml; then
+            echo "ícone gerado"
+          else
+            cp /tmp/pubspec.bak pubspec.yaml
+            flutter pub get
+            exit 1
+          fi
+
       - run: flutter analyze --no-fatal-infos --no-fatal-warnings lib || true
 
       - name: Compilar APK
