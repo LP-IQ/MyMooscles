@@ -31,8 +31,8 @@ jobs:
       - name: Gerar a pasta android (flutter create)
         run: |
           flutter --version
-          flutter create . --platforms=android --project-name gymapp --org io.github.lpiq
-          sed -i 's/android:label="gymapp"/android:label="GymApp"/' android/app/src/main/AndroidManifest.xml
+          flutter create . --platforms=android --project-name mymooscles --org io.github.lpiq
+          sed -i 's/android:label="mymooscles"/android:label="MyMooscles"/' android/app/src/main/AndroidManifest.xml
 
       - name: Usar a chave de assinatura fixa (permite atualizar sem perder dados)
         run: |
@@ -55,20 +55,20 @@ jobs:
           keytool -list -v -keystore android-signing/debug.keystore -storepass android | grep SHA256 || true
           APKSIGNER=$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
           "$APKSIGNER" verify --print-certs build/app/outputs/flutter-apk/app-release.apk | grep SHA-256 || true
-          cp build/app/outputs/flutter-apk/app-release.apk GymApp.apk
+          cp build/app/outputs/flutter-apk/app-release.apk MyMooscles.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: GymApp-apk
-          path: GymApp.apk
+          name: MyMooscles-apk
+          path: MyMooscles.apk
 
       - name: Publicar release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
-          name: GymApp (build ${{ github.run_number }})
+          name: MyMooscles (build ${{ github.run_number }})
           body: |
             APK gerado automaticamente a partir de ${{ github.sha }}.
-            No celular: baixe GymApp.apk abaixo e instale (permita "instalar apps desconhecidos" para o navegador).
-          files: GymApp.apk
+            No celular: baixe MyMooscles.apk abaixo e instale (permita "instalar apps desconhecidos" para o navegador).
+          files: MyMooscles.apk
           make_latest: true

@@ -1,4 +1,4 @@
-// Modelos de dados do GymApp. Tudo é salvo em um único arquivo JSON local.
+// Modelos de dados do MyMooscles. Tudo é salvo em um único arquivo JSON local.
 
 int _idCounter = 0;
 

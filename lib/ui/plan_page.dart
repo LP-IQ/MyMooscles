@@ -156,7 +156,7 @@ class PlanPage extends StatelessWidget {
               ),
               const Padding(
                 padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
-                child: Text('GymApp 0.1 · dados salvos só neste celular.'),
+                child: Text('MyMooscles 0.1 · dados salvos só neste celular.'),
               ),
             ],
           ),
@@ -271,7 +271,7 @@ class PlanPage extends StatelessWidget {
       await Store.instance.importJson(c.text);
       if (context.mounted) showSnack(context, 'Backup restaurado.');
     } catch (e) {
-      if (context.mounted) showSnack(context, 'Texto inválido: não é um backup do GymApp.');
+      if (context.mounted) showSnack(context, 'Texto inválido: não é um backup do MyMooscles.');
     }
   }
 }

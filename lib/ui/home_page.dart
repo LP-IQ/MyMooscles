@@ -32,7 +32,7 @@ class HomePage extends StatelessWidget {
 
         return Scaffold(
           appBar: AppBar(
-            title: Text(name.isEmpty ? 'GymApp' : 'Olá, $name'),
+            title: Text(name.isEmpty ? 'MyMooscles' : 'Olá, $name'),
           ),
           body: ListView(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),

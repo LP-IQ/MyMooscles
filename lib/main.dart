@@ -9,16 +9,16 @@ import 'ui/workout_pages.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Store.instance.load();
-  runApp(const GymApp());
+  runApp(const MyMooscles());
 }
 
-class GymApp extends StatelessWidget {
-  const GymApp({super.key});
+class MyMooscles extends StatelessWidget {
+  const MyMooscles({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'GymApp',
+      title: 'MyMooscles',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(colorSchemeSeed: Colors.teal, brightness: Brightness.light, useMaterial3: true),
       darkTheme: ThemeData(colorSchemeSeed: Colors.teal, brightness: Brightness.dark, useMaterial3: true),

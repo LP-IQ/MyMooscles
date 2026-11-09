@@ -1,4 +1,4 @@
-# GymApp
+# MyMooscles
 
 App Android pessoal para acompanhar treino de musculação, peso, medidas e metas de dieta. Gratuito, sem anúncios e sem conta: todos os dados ficam salvos no próprio celular.
 
@@ -12,7 +12,7 @@ App Android pessoal para acompanhar treino de musculação, peso, medidas e meta
 ## Instalar no celular
 
 1. Abra a página [Releases](../../releases/latest) no navegador do celular.
-2. Baixe **GymApp.apk**.
+2. Baixe **MyMooscles.apk**.
 3. Abra o arquivo e permita "instalar apps desconhecidos" para o navegador.
 
 Para atualizar, basta instalar o APK novo por cima. Todos os builds usam a mesma chave (`android-signing/debug.keystore`), então os dados são mantidos.
@@ -29,7 +29,7 @@ Cada push na branch `main` dispara o workflow `.github/workflows/build-apk.yml`,
 ## Desenvolvimento local
 
 ```bash
-flutter create . --platforms=android --project-name gymapp --org io.github.lpiq
+flutter create . --platforms=android --project-name mymooscles --org io.github.lpiq
 flutter run
 ```
 

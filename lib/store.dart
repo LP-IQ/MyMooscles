@@ -20,7 +20,7 @@ class Store extends ChangeNotifier {
 
   Future<void> load() async {
     final dir = await getApplicationDocumentsDirectory();
-    final file = File('${dir.path}/gymapp_data.json');
+    final file = File('${dir.path}/mymooscles_data.json');
     _file = file;
     if (await file.exists()) {
       try {
@@ -28,7 +28,7 @@ class Store extends ChangeNotifier {
         data = AppData.fromJson(jsonDecode(raw) as Map<String, dynamic>);
       } catch (_) {
         // Arquivo corrompido: guarda uma cópia e recomeça, sem apagar nada.
-        await file.copy('${dir.path}/gymapp_data_erro_${DateTime.now().millisecondsSinceEpoch}.json');
+        await file.copy('${dir.path}/mymooscles_data_erro_${DateTime.now().millisecondsSinceEpoch}.json');
         data = seedData();
         await _write();
       }
