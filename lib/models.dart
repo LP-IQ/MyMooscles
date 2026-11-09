@@ -20,6 +20,7 @@ class Profile {
   double activity; // fator multiplicador do metabolismo basal
   double? kcalOverride;
   double? proteinOverride;
+  String theme; // chave em theme.dart
 
   Profile({
     this.name = '',
@@ -30,10 +31,12 @@ class Profile {
     this.activity = 1.4,
     this.kcalOverride,
     this.proteinOverride,
+    this.theme = 'moo',
   });
 
   Map<String, dynamic> toJson() => {
         'name': name,
+        'theme': theme,
         'heightCm': heightCm,
         'age': age,
         'sex': sex,
@@ -52,6 +55,7 @@ class Profile {
         activity: _toDouble(j['activity']) ?? 1.4,
         kcalOverride: _toDouble(j['kcalOverride']),
         proteinOverride: _toDouble(j['proteinOverride']),
+        theme: (j['theme'] as String?) ?? 'moo',
       );
 }
 

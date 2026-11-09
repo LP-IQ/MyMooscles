@@ -22,139 +22,187 @@ class _BodyPageState extends State<BodyPage> {
     return ListenableBuilder(
       listenable: store,
       builder: (context, _) {
+        final t = mt(context);
         final data = store.data;
         final now = DateTime.now();
-        var weights = weightEntries(data.body);
+        final allWeights = weightEntries(data.body);
+        var weights = allWeights;
         if (_days > 0) {
           final from = dayOnly(now).subtract(Duration(days: _days));
-          weights = weights.where((e) => !e.date.isBefore(from)).toList();
+          weights = allWeights.where((e) => !e.date.isBefore(from)).toList();
         }
-        final avg = movingAverage(weightEntries(data.body))
+        final avg = movingAverage(allWeights)
             .where((e) => weights.isNotEmpty && !e.key.isBefore(weights.first.date))
             .toList();
         final stats = weightStats(data.body, now);
         final waist = latestWith(data.body, (e) => e.waist);
         final firstWaist = _firstWith(data.body, (e) => e.waist);
         final fat = latestWith(data.body, (e) => e.bodyFat);
+        final lean = latestWith(data.body, (e) => e.leanMass);
         final entries = [...data.body]..sort((a, b) => b.date.compareTo(a.date));
         final advice = adjustmentAdvice(data, now);
+        final change = (stats.last != null && stats.first != null) ? stats.last! - stats.first! : null;
+        final waistChange =
+            (waist != null && firstWaist != null && firstWaist.id != waist.id) ? waist.waist! - firstWaist.waist! : null;
 
-        return Scaffold(
-          appBar: AppBar(title: const Text('Corpo')),
-          floatingActionButton: FloatingActionButton.extended(
-            onPressed: () => openBodyEntry(context),
-            icon: const Icon(Icons.add),
-            label: const Text('Registrar'),
-          ),
-          body: ListView(
-            padding: const EdgeInsets.only(bottom: 96),
-            children: [
+        String signed(double v, [int d = 2]) => '${v > 0 ? '+' : ''}${fmtNum(v, d)}';
+
+        return ListView(
+          padding: const EdgeInsets.only(bottom: 28),
+          children: [
+            PageHeader(
+              'Corpo',
+              kicker: 'Peso e medidas',
+              trailing: PillButton(label: 'Registrar', icon: Icons.add, onPressed: () => openBodyEntry(context)),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 6, 18, 0),
+              child: MooCard(
+                child: Wrap(
+                  spacing: 22,
+                  runSpacing: 14,
+                  children: [
+                    StatTile(
+                      label: stats.lastDate == null ? 'Último peso' : 'Último · ${fmtDateShort(stats.lastDate!)}',
+                      value: stats.last == null ? '—' : fmtNum(stats.last!, 2),
+                      unit: stats.last == null ? null : 'kg',
+                    ),
+                    StatTile(
+                      label: 'Média 7 dias',
+                      value: stats.avg7 == null ? '—' : fmtNum(stats.avg7!, 2),
+                      unit: stats.avg7 == null ? null : 'kg',
+                      sub: stats.weeklyChange == null ? null : '${signed(stats.weeklyChange!)} kg na semana',
+                    ),
+                    StatTile(
+                      label: 'Desde o início',
+                      value: change == null ? '—' : signed(change),
+                      unit: change == null ? null : 'kg',
+                      sub: stats.firstDate == null ? null : 'desde ${fmtDateShort(stats.firstDate!)}',
+                      highlight: true,
+                    ),
+                    StatTile(
+                      label: 'Cintura',
+                      value: waist == null ? '—' : fmtNum(waist.waist!),
+                      unit: waist == null ? null : 'cm',
+                      sub: waistChange != null
+                          ? '${signed(waistChange, 1)} cm desde ${fmtDateShort(firstWaist!.date)}'
+                          : (waist == null ? 'meça toda sexta' : fmtDateShort(waist.date)),
+                    ),
+                    if (fat != null)
+                      StatTile(
+                        label: 'Gordura',
+                        value: fmtNum(fat.bodyFat!),
+                        unit: '%',
+                        sub: 'bioimpedância ${fmtDateShort(fat.date)}',
+                      ),
+                    if (lean != null)
+                      StatTile(
+                        label: 'Massa magra',
+                        value: fmtNum(lean.leanMass!, 1),
+                        unit: 'kg',
+                        sub: fmtDateShort(lean.date),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            if (advice != null)
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                child: Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Wrap(
-                      spacing: 24,
-                      runSpacing: 16,
+                padding: const EdgeInsets.fromLTRB(18, 12, 18, 0),
+                child: MooCard(
+                  color: t.tint,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.insights, color: t.acc),
+                      const SizedBox(width: 10),
+                      Expanded(child: Text(advice, style: t.body(14, weight: FontWeight.w600))),
+                    ],
+                  ),
+                ),
+              ),
+            SectionTitle(
+              'Peso',
+              icon: Icons.show_chart,
+              trailing: Wrap(
+                spacing: 6,
+                children: [
+                  for (final opt in const [(30, '30d'), (90, '90d'), (0, 'Tudo')])
+                    ChoiceChip(
+                      label: Text(opt.$2),
+                      selected: _days == opt.$1,
+                      visualDensity: VisualDensity.compact,
+                      onSelected: (_) => setState(() => _days = opt.$1),
+                    ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+              child: MooCard(
+                padding: const EdgeInsets.fromLTRB(8, 14, 14, 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SimpleLineChart(
+                      points: weights.map((e) => MapEntry(e.date, e.weight!)).toList(),
+                      line: avg,
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(8, 6, 0, 0),
+                      child: Text('Pontos: pesagens · Linha: média de 7 dias', style: t.body(12, color: t.muted)),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SectionTitle('Registros', icon: Icons.list_alt),
+            if (entries.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 18),
+                child: Text('Nenhum registro. Toque em "Registrar" para adicionar peso, cintura ou bioimpedância.',
+                    style: t.body(14, color: t.muted)),
+              ),
+            for (final e in entries)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(18, 0, 18, 10),
+                child: Dismissible(
+                  key: ValueKey(e.id),
+                  direction: DismissDirection.endToStart,
+                  background: Container(
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.errorContainer,
+                      borderRadius: BorderRadius.circular(t.radius),
+                    ),
+                    alignment: Alignment.centerRight,
+                    padding: const EdgeInsets.only(right: 24),
+                    child: Icon(Icons.delete, color: Theme.of(context).colorScheme.onErrorContainer),
+                  ),
+                  confirmDismiss: (_) =>
+                      confirmDialog(context, 'Apagar registro?', 'Registro de ${fmtDate(e.date)}.', ok: 'Apagar'),
+                  onDismissed: (_) => store.deleteBody(e),
+                  child: MooCard(
+                    padding: const EdgeInsets.all(14),
+                    onTap: () => openBodyEntry(context, existing: e),
+                    child: Row(
                       children: [
-                        StatTile(
-                          label: 'Último peso',
-                          value: stats.last == null ? '—' : '${fmtNum(stats.last!, 2)} kg',
-                          sub: stats.lastDate == null ? null : fmtDate(stats.lastDate!),
-                        ),
-                        StatTile(
-                          label: 'Média 7 dias',
-                          value: stats.avg7 == null ? '—' : '${fmtNum(stats.avg7!, 2)} kg',
-                          sub: stats.weeklyChange == null
-                              ? null
-                              : '${stats.weeklyChange! > 0 ? '+' : ''}${fmtNum(stats.weeklyChange!, 2)} kg na semana',
-                        ),
-                        StatTile(
-                          label: 'Desde o início',
-                          value: (stats.last == null || stats.first == null)
-                              ? '—'
-                              : '${stats.last! - stats.first! > 0 ? '+' : ''}${fmtNum(stats.last! - stats.first!, 2)} kg',
-                          sub: stats.firstDate == null ? null : 'desde ${fmtDate(stats.firstDate!)}',
-                        ),
-                        StatTile(
-                          label: 'Cintura',
-                          value: waist == null ? '—' : '${fmtNum(waist.waist!)} cm',
-                          sub: (waist != null && firstWaist != null && firstWaist.id != waist.id)
-                              ? '${waist.waist! - firstWaist.waist! > 0 ? '+' : ''}${fmtNum(waist.waist! - firstWaist.waist!)} cm desde ${fmtDateShort(firstWaist.date)}'
-                              : (waist == null ? null : fmtDate(waist.date)),
-                        ),
-                        if (fat != null)
-                          StatTile(
-                            label: 'Gordura (bioimpedância)',
-                            value: '${fmtNum(fat.bodyFat!)}%',
-                            sub: fmtDate(fat.date),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(_entryTitle(e), style: t.body(15, weight: FontWeight.w700)),
+                              Text([fmtDate(e.date), if (e.note.isNotEmpty) e.note].join(' · '),
+                                  style: t.body(13, color: t.muted)),
+                            ],
                           ),
+                        ),
+                        Icon(Icons.chevron_right, color: t.muted),
                       ],
                     ),
                   ),
                 ),
               ),
-              if (advice != null)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                  child: Card(
-                    color: Theme.of(context).colorScheme.secondaryContainer,
-                    child: ListTile(leading: const Icon(Icons.insights), title: Text(advice)),
-                  ),
-                ),
-              SectionTitle(
-                'Peso',
-                trailing: DropdownButton<int>(
-                  value: _days,
-                  underline: const SizedBox.shrink(),
-                  items: const [
-                    DropdownMenuItem(value: 30, child: Text('30 dias')),
-                    DropdownMenuItem(value: 90, child: Text('90 dias')),
-                    DropdownMenuItem(value: 0, child: Text('Tudo')),
-                  ],
-                  onChanged: (v) => setState(() => _days = v ?? 90),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: SimpleLineChart(
-                  points: weights.map((e) => MapEntry(e.date, e.weight!)).toList(),
-                  line: avg,
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-                child: Text('Pontos: pesagens. Linha: média dos últimos 7 dias.',
-                    style: Theme.of(context).textTheme.bodySmall),
-              ),
-              const SectionTitle('Registros'),
-              if (entries.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                  child: Text('Nenhum registro. Toque em "Registrar" para adicionar peso, cintura ou bioimpedância.'),
-                ),
-              for (final e in entries)
-                Dismissible(
-                  key: ValueKey(e.id),
-                  direction: DismissDirection.endToStart,
-                  background: Container(
-                    color: Theme.of(context).colorScheme.errorContainer,
-                    alignment: Alignment.centerRight,
-                    padding: const EdgeInsets.only(right: 24),
-                    child: const Icon(Icons.delete),
-                  ),
-                  confirmDismiss: (_) => confirmDialog(context, 'Apagar registro?', 'Registro de ${fmtDate(e.date)}.',
-                      ok: 'Apagar'),
-                  onDismissed: (_) => store.deleteBody(e),
-                  child: ListTile(
-                    title: Text(_entryTitle(e)),
-                    subtitle: Text([fmtDate(e.date), if (e.note.isNotEmpty) e.note].join(' · ')),
-                    onTap: () => openBodyEntry(context, existing: e),
-                  ),
-                ),
-            ],
-          ),
+          ],
         );
       },
     );
@@ -276,42 +324,55 @@ class _BodyEntryPageState extends State<BodyEntryPage> {
 
   @override
   Widget build(BuildContext context) {
+    final t = mt(context);
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.existing == null ? 'Novo registro' : 'Editar registro'),
-        actions: [TextButton(onPressed: _save, child: const Text('Salvar'))],
+      appBar: mooAppBar(context, widget.existing == null ? 'Novo registro' : 'Editar registro'),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 8, 18, 12),
+          child: MooButton(label: 'Salvar', icon: Icons.check, expand: true, onPressed: _save),
+        ),
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(18, 8, 18, 24),
         children: [
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.event),
-            title: Text(fmtDate(_date)),
-            subtitle: const Text('Toque para mudar a data'),
+          MooCard(
+            padding: const EdgeInsets.all(14),
             onTap: _pickDate,
+            child: Row(
+              children: [
+                Icon(Icons.event, color: t.acc),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(fmtDate(_date), style: t.body(16, weight: FontWeight.w700)),
+                      Text('Toque para mudar a data', style: t.body(13, color: t.muted)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 16),
           NumberField(controller: _weight, label: 'Peso', suffix: 'kg', autofocus: widget.existing == null),
           const SizedBox(height: 12),
           NumberField(controller: _waist, label: 'Cintura (altura do umbigo)', suffix: 'cm'),
-          const SizedBox(height: 20),
-          Text('Bioimpedância (opcional)', style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: 8),
+          const SizedBox(height: 22),
+          Text('BIOIMPEDÂNCIA (OPCIONAL)', style: t.label()),
+          const SizedBox(height: 10),
           NumberField(controller: _fat, label: 'Gordura corporal', suffix: '%'),
           const SizedBox(height: 12),
           NumberField(controller: _lean, label: 'Massa magra (LBM)', suffix: 'kg'),
           const SizedBox(height: 12),
           NumberField(controller: _visceral, label: 'Gordura visceral (índice)'),
           const SizedBox(height: 12),
-          TextField(
-            controller: _note,
-            decoration: const InputDecoration(labelText: 'Observação', border: OutlineInputBorder()),
-          ),
+          TextInput(controller: _note, label: 'Observação'),
           const SizedBox(height: 16),
           Text(
             'Dica: pese-se ao acordar, depois do banheiro e antes de comer. Cintura toda sexta, em jejum.',
-            style: Theme.of(context).textTheme.bodySmall,
+            style: t.body(13, color: t.muted),
           ),
         ],
       ),

@@ -4,6 +4,8 @@ App Android pessoal para acompanhar treino de musculação, peso, medidas e meta
 
 ## O que faz
 
+- **4 temas:** Moo, Moo Noturno, Noturno e Claro. A troca fica em Plano → Tema. As fontes (Rubik, Inter, Space Grotesk e Plus Jakarta Sans, licença OFL) vêm embutidas no app e funcionam offline.
+
 - **Hoje:** mostra o treino do dia, o peso (último registro e média de 7 dias) e as metas de calorias e macros.
 - **Treinos:** traz a divisão A–E editável (exercícios, séries, faixa de reps e carga inicial). Durante o treino você registra carga e reps de cada série e usa o cronômetro de descanso. O app sugere a próxima carga por **dupla progressão**: quando todas as séries chegam ao topo da faixa, a carga sobe cerca de 5%.
 - **Corpo:** registra peso, cintura e bioimpedância (gordura, massa magra e visceral), com gráfico e média móvel de 7 dias. Depois de 2 semanas de pesagens, dá uma orientação de ajuste.
