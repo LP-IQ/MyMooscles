@@ -34,10 +34,11 @@ jobs:
           flutter create . --platforms=android --project-name mymooscles --org io.github.lpiq
           sed -i 's/android:label="mymooscles"/android:label="MyMooscles"/' android/app/src/main/AndroidManifest.xml
 
-      - name: Usar a chave de assinatura fixa (permite atualizar sem perder dados)
+      - name: Ajustar Android (assinatura fixa, desugaring, permissões de notificação)
         run: |
-          python3 tool/patch_signing.py
-          grep -n -A6 "signingConfigs" android/app/build.gradle* | head -20
+          python3 tool/patch_android.py
+          cat android/app/build.gradle*
+          grep -n "permission\|receiver" android/app/src/main/AndroidManifest.xml
 
       - run: flutter pub get
 

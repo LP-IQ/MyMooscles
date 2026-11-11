@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 
 import '../theme.dart';
@@ -375,51 +373,6 @@ class MooTextField extends StatelessWidget {
   }
 }
 
-/// Manchas de vaca decorativas (temas Moo).
-class CowSpots extends StatelessWidget {
-  final double width;
-  final double height;
-  const CowSpots({super.key, this.width = 130, this.height = 96});
-
-  @override
-  Widget build(BuildContext context) {
-    final t = mt(context);
-    return IgnorePointer(
-      child: CustomPaint(size: Size(width, height), painter: _CowPainter(t.line)),
-    );
-  }
-}
-
-class _CowPainter extends CustomPainter {
-  final Color color;
-  _CowPainter(this.color);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final sx = size.width / 120;
-    final sy = size.height / 90;
-    final p = Paint()..color = color;
-    final a = Path()
-      ..moveTo(20 * sx, 10 * sy)
-      ..cubicTo(34 * sx, 2 * sy, 50 * sx, 12 * sy, 46 * sx, 26 * sy)
-      ..cubicTo(42 * sx, 40 * sy, 24 * sx, 38 * sy, 18 * sx, 30 * sy)
-      ..cubicTo(12 * sx, 22 * sy, 8 * sx, 17 * sy, 20 * sx, 10 * sy)
-      ..close();
-    final b = Path()
-      ..moveTo(78 * sx, 40 * sy)
-      ..cubicTo(88 * sx, 34 * sy, 104 * sx, 40 * sy, 102 * sx, 52 * sy)
-      ..cubicTo(100 * sx, 64 * sy, 84 * sx, 66 * sy, 78 * sx, 60 * sy)
-      ..cubicTo(72 * sx, 54 * sy, 70 * sx, 46 * sy, 78 * sx, 40 * sy)
-      ..close();
-    canvas.drawPath(a, p);
-    canvas.drawPath(b, p);
-    canvas.drawCircle(Offset(62 * sx, 14 * sy), 6 * math.min(sx, sy), p);
-  }
-
-  @override
-  bool shouldRepaint(covariant _CowPainter old) => old.color != color;
-}
-
 // ---------------------------------------------------------------------------
 // Diálogos e avisos
 // ---------------------------------------------------------------------------
@@ -578,7 +531,7 @@ class _ChartPainter extends CustomPainter {
       old.points != points || old.line != line || old.lineColor != lineColor;
 }
 
-/// Logo do app: selo com "M" e o nome com o "Moo" destacado.
+/// Logo do app: selo com "M" e o nome.
 class MooLogo extends StatelessWidget {
   final double size;
   const MooLogo({super.key, this.size = 34});
@@ -600,27 +553,13 @@ class MooLogo extends StatelessWidget {
               border: t.borderWidth >= 2 ? Border.all(color: t.line, width: 2) : null,
               boxShadow: t.shadowFor(2),
             ),
-            child: Stack(
-              children: [
-                Positioned(
-                  right: size * 0.1,
-                  top: size * 0.1,
-                  child: Container(
-                    width: size * 0.22,
-                    height: size * 0.18,
-                    decoration: BoxDecoration(color: t.onAcc.withAlpha(90), borderRadius: BorderRadius.circular(size)),
-                  ),
-                ),
-                Center(child: Text('M', style: t.head(size * 0.58, weight: FontWeight.w800, color: t.onAcc))),
-              ],
-            ),
+            child: Center(child: Text('M', style: t.head(size * 0.58, weight: FontWeight.w800, color: t.onAcc))),
           ),
           const SizedBox(width: 10),
           ExcludeSemantics(
             child: Text.rich(TextSpan(children: [
               TextSpan(text: 'My', style: t.head(size * 0.62, weight: FontWeight.w800)),
-              TextSpan(text: 'Moo', style: t.head(size * 0.62, weight: FontWeight.w800, color: t.acc)),
-              TextSpan(text: 'scles', style: t.head(size * 0.62, weight: FontWeight.w800)),
+              TextSpan(text: 'Mooscles', style: t.head(size * 0.62, weight: FontWeight.w800, color: t.acc)),
             ])),
           ),
         ],

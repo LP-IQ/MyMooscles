@@ -180,7 +180,7 @@ class _Greeting extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = mt(context);
     final date = '${weekdayNames[now.weekday]}, ${fmtDateShort(now)}';
-    if (!t.cowSpots) {
+    if (!t.cardGreeting) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -194,30 +194,16 @@ class _Greeting extends StatelessWidget {
         ? 'Dia de descanso. Recuperar também é treino.'
         : 'Hoje é dia de ${today!.name.toLowerCase()}.';
     return MooCard(
-      padding: EdgeInsets.zero,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(t.radius),
-        child: Stack(
-          children: [
-            const Positioned(right: -10, top: -8, child: CowSpots()),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 18, 16, 18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(date, style: t.body(13, weight: FontWeight.w600, color: t.muted)),
-                  const SizedBox(height: 4),
-                  Text(name.isEmpty ? 'Bora!' : 'Bora, $name!', style: t.head(30, weight: FontWeight.w800)),
-                  const SizedBox(height: 6),
-                  SizedBox(
-                    width: 230,
-                    child: Text(line, style: t.body(14, color: t.muted)),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+      padding: const EdgeInsets.fromLTRB(16, 18, 16, 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(date, style: t.body(13, weight: FontWeight.w600, color: t.muted)),
+          const SizedBox(height: 4),
+          Text(name.isEmpty ? 'Bora!' : 'Bora, $name!', style: t.head(30, weight: FontWeight.w800)),
+          const SizedBox(height: 6),
+          Text(line, style: t.body(14, color: t.muted)),
+        ],
       ),
     );
   }

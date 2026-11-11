@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../logic.dart';
 import '../models.dart';
+import '../rest_alert.dart';
 import '../seed.dart';
 import '../store.dart';
 import '../util.dart';
@@ -679,37 +680,81 @@ class _SessionPageState extends State<SessionPage> {
     return null;
   }
 
+  DateTime? _restEnd;
+
+  String _restLabel() {
+    final d = Store.instance.data.draft;
+    if (d == null) return 'Próxima série';
+    for (final e in d.exercises) {
+      if (e.exerciseId == _open) return 'Próximo: ${e.name}';
+    }
+    return 'Treino ${d.templateCode}';
+  }
+
   void _startRest([int? seconds]) {
     final secs = seconds ?? _restDefault;
     _restTimer?.cancel();
+    _restEnd = DateTime.now().add(Duration(seconds: secs));
     setState(() {
       _restTotal = secs;
       _restLeft = secs;
     });
-    _restTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+    RestAlert.instance.start(secs, _restLabel());
+    // Conta pelo horário de término: continua certo mesmo se o app ficar em segundo plano.
+    _restTimer = Timer.periodic(const Duration(milliseconds: 500), (timer) {
       if (!mounted) {
         timer.cancel();
         return;
       }
-      setState(() => _restLeft--);
-      if (_restLeft <= 0) {
+      final end = _restEnd;
+      final left = end == null ? 0 : (end.difference(DateTime.now()).inMilliseconds / 1000).ceil();
+      if (left != _restLeft) setState(() => _restLeft = left < 0 ? 0 : left);
+      if (left <= 0) {
         timer.cancel();
+        _restEnd = null;
         HapticFeedback.heavyImpact();
         SystemSound.play(SystemSoundType.alert);
       }
     });
   }
 
+  void _addRest(int seconds) {
+    final end = _restEnd;
+    if (end == null) return;
+    final remaining = end.difference(DateTime.now()).inSeconds + seconds;
+    final total = _restTotal + seconds;
+    _startRest(remaining);
+    setState(() => _restTotal = total);
+  }
+
   void _stopRest() {
     _restTimer?.cancel();
+    _restEnd = null;
+    RestAlert.instance.stop();
     setState(() => _restLeft = 0);
   }
 
   void _onSetDone(Session s, ExerciseLog e) {
-    _startRest();
     if (_complete(e)) {
       setState(() => _open = _firstIncomplete(s, after: e.exerciseId)?.exerciseId);
     }
+    _startRest();
+  }
+
+  Future<void> _editTemplate(Session s) async {
+    final tpl = Store.instance.templateById(s.templateId);
+    if (tpl == null) {
+      showSnack(context, 'Este treino não está mais salvo.');
+      return;
+    }
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => TemplateEditPage(template: tpl)));
+    // Exercícios adicionados no treino entram também na sessão em andamento.
+    final data = Store.instance.data;
+    for (final ex in tpl.exercises) {
+      if (!s.exercises.any((e) => e.exerciseId == ex.id)) s.exercises.add(buildExerciseLog(data, ex));
+    }
+    await Store.instance.saveDraft();
+    if (mounted) setState(() {});
   }
 
   Future<void> _finish(Session s) async {
@@ -723,14 +768,16 @@ class _SessionPageState extends State<SessionPage> {
     if (!ok || !mounted) return;
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
+    _stopRest();
     await Store.instance.finishDraft();
     navigator.pop();
-    messenger.showSnackBar(SnackBar(content: Text(done == 0 ? 'Treino descartado.' : 'Treino salvo! Moo!')));
+    messenger.showSnackBar(SnackBar(content: Text(done == 0 ? 'Treino descartado.' : 'Treino salvo!')));
   }
 
   Future<void> _discard() async {
     final ok = await confirmDialog(context, 'Descartar treino?', 'Nada desta sessão será salvo.', ok: 'Descartar');
     if (!ok) return;
+    _stopRest();
     await Store.instance.discardDraft();
     if (mounted) Navigator.pop(context);
   }
@@ -756,6 +803,8 @@ class _SessionPageState extends State<SessionPage> {
             onSelected: (v) {
               if (v == 'discard') {
                 _discard();
+              } else if (v == 'edit') {
+                _editTemplate(s);
               } else {
                 final secs = int.tryParse(v);
                 if (secs != null) setState(() => _restDefault = secs);
@@ -769,6 +818,7 @@ class _SessionPageState extends State<SessionPage> {
                   child: Text('Descanso padrão: ${secs < 120 ? '$secs s' : '${secs ~/ 60} min'}'),
                 ),
               const PopupMenuDivider(),
+              const PopupMenuItem<String>(value: 'edit', child: Text('Editar treino (exercícios, ordem)')),
               const PopupMenuItem<String>(value: 'discard', child: Text('Descartar treino')),
             ],
           ),
@@ -779,10 +829,7 @@ class _SessionPageState extends State<SessionPage> {
         restTotal: _restTotal,
         restDefault: _restDefault,
         onStart: () => _startRest(),
-        onAdd: () => setState(() {
-          _restLeft += 30;
-          _restTotal += 30;
-        }),
+        onAdd: () => _addRest(30),
         onStop: _stopRest,
         onFinish: () => _finish(s),
       ),
@@ -993,15 +1040,23 @@ class _ExerciseCard extends StatelessWidget {
     required this.onSkip,
   });
 
-  Future<void> _chooseVariant(BuildContext context) async {
-    final t = mt(context);
+  /// Nome original + variações cadastradas (sem repetir).
+  List<String> _variantOptions() {
     final tpl = template;
-    final options = <String>[
+    return <String>[
       if (tpl != null) tpl.name,
       ...?tpl?.alternatives,
+      if (tpl == null) log.name,
       if (tpl == null) ...(defaultAlternatives[log.name] ?? const <String>[]),
-    ].where((x) => x != log.name).toSet().toList();
-    final chosen = await showModalBottomSheet<String>(
+      log.name,
+    ].toSet().toList();
+  }
+
+  Future<void> _chooseVariant(BuildContext context, {bool typeOnly = false}) async {
+    final t = mt(context);
+    final tpl = template;
+    final options = _variantOptions().where((x) => x != log.name).toList();
+    final chosen = typeOnly ? '__outro__' : await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
       builder: (ctx) => SafeArea(
@@ -1160,6 +1215,16 @@ class _ExerciseCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            _VariantStrip(
+              current: log.name,
+              options: _variantOptions(),
+              onPick: (name) {
+                switchVariant(Store.instance.data, log, template, name);
+                onChanged();
+              },
+              onOther: () => _chooseVariant(context, typeOnly: true),
+            ),
+            const SizedBox(height: 8),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4),
               child: SuggestionBox(sug: sug, last: last),
@@ -1213,6 +1278,47 @@ class _ExerciseCard extends StatelessWidget {
             if (open) body,
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Faixa rolável com o exercício original e as variações; toque para trocar.
+class _VariantStrip extends StatelessWidget {
+  final String current;
+  final List<String> options;
+  final ValueChanged<String> onPick;
+  final VoidCallback onOther;
+  const _VariantStrip({required this.current, required this.options, required this.onPick, required this.onOther});
+
+  @override
+  Widget build(BuildContext context) {
+    final t = mt(context);
+    return SizedBox(
+      height: 40,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        children: [
+          for (final o in options)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ChoiceChip(
+                label: Text(o),
+                selected: o == current,
+                visualDensity: VisualDensity.compact,
+                onSelected: (_) {
+                  if (o != current) onPick(o);
+                },
+              ),
+            ),
+          ActionChip(
+            avatar: Icon(Icons.add, size: 18, color: t.text),
+            label: const Text('Outro'),
+            visualDensity: VisualDensity.compact,
+            onPressed: onOther,
+          ),
+        ],
       ),
     );
   }

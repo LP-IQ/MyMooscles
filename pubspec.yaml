@@ -1,7 +1,7 @@
 name: mymooscles
 description: App pessoal para acompanhar treino, peso, medidas e metas de dieta.
 publish_to: 'none'
-version: 0.3.0+1
+version: 0.4.0+1
 
 environment:
   sdk: '>=3.4.0 <4.0.0'
@@ -10,6 +10,8 @@ dependencies:
   flutter:
     sdk: flutter
   path_provider: ^2.1.4
+  flutter_local_notifications: ^19.0.0
+  timezone: ^0.10.0
 
 flutter:
   uses-material-design: true

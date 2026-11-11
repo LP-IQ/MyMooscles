@@ -24,7 +24,7 @@ class MooTheme {
   final double shadowOffset;
   final String bodyFont;
   final String headFont;
-  final bool cowSpots;
+  final bool cardGreeting;
 
   const MooTheme({
     required this.key,
@@ -49,7 +49,7 @@ class MooTheme {
     required this.shadowOffset,
     required this.bodyFont,
     required this.headFont,
-    required this.cowSpots,
+    required this.cardGreeting,
   });
 
   bool get isDark => brightness == Brightness.dark;
@@ -157,8 +157,8 @@ class MooTheme {
 const mooThemes = <MooTheme>[
   MooTheme(
     key: 'moo',
-    label: 'Moo',
-    description: 'Preto e branco com rosa, bordas marcadas',
+    label: 'Rosa',
+    description: 'Branco, preto e rosa, com bordas marcadas',
     brightness: Brightness.light,
     bg: Color(0xFFFFFFFF),
     surf: Color(0xFFFFFFFF),
@@ -178,12 +178,12 @@ const mooThemes = <MooTheme>[
     shadowOffset: 4,
     bodyFont: 'Rubik',
     headFont: 'Rubik',
-    cowSpots: true,
+    cardGreeting: true,
   ),
   MooTheme(
     key: 'moo_noturno',
-    label: 'Moo Noturno',
-    description: 'O Moo no escuro, com sombra rosa',
+    label: 'Rosa Noturno',
+    description: 'Escuro com rosa e bordas marcadas',
     brightness: Brightness.dark,
     bg: Color(0xFF121212),
     surf: Color(0xFF1C1C1C),
@@ -203,7 +203,7 @@ const mooThemes = <MooTheme>[
     shadowOffset: 4,
     bodyFont: 'Rubik',
     headFont: 'Rubik',
-    cowSpots: true,
+    cardGreeting: true,
   ),
   MooTheme(
     key: 'noturno',
@@ -228,7 +228,7 @@ const mooThemes = <MooTheme>[
     shadowOffset: 0,
     bodyFont: 'Inter',
     headFont: 'SpaceGrotesk',
-    cowSpots: false,
+    cardGreeting: false,
   ),
   MooTheme(
     key: 'claro',
@@ -253,7 +253,7 @@ const mooThemes = <MooTheme>[
     shadowOffset: 0,
     bodyFont: 'PlusJakartaSans',
     headFont: 'PlusJakartaSans',
-    cowSpots: false,
+    cardGreeting: false,
   ),
 ];
 

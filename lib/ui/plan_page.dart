@@ -248,7 +248,7 @@ class PlanPage extends StatelessWidget {
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(18, 18, 18, 0),
-              child: Text('MyMooscles 0.3 · dados salvos só neste celular.', style: t.body(12, color: t.muted)),
+              child: Text('MyMooscles 0.4 · dados salvos só neste celular.', style: t.body(12, color: t.muted)),
             ),
           ],
         );

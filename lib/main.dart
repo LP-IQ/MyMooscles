@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'rest_alert.dart';
 import 'store.dart';
 import 'theme.dart';
 import 'ui/body_page.dart';
@@ -11,6 +12,7 @@ import 'ui/workout_pages.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Store.instance.load();
+  await RestAlert.instance.init();
   runApp(const MyMoosclesApp());
 }
 
