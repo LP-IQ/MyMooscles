@@ -27,7 +27,7 @@ class Store extends ChangeNotifier {
       try {
         final raw = await file.readAsString();
         data = AppData.fromJson(jsonDecode(raw) as Map<String, dynamic>);
-        if (data.version < 2) {
+        if (data.version < 3) {
           migrate(data);
           await _write();
         }

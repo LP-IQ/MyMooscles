@@ -110,6 +110,7 @@ ExerciseTemplate effectiveTemplate(ExerciseLog log, ExerciseTemplate? tpl) {
     note: tpl?.note ?? '',
     timed: log.timed,
     warmups: tpl?.warmups ?? 0,
+    restTip: tpl?.restTip ?? '',
   );
 }
 
@@ -383,4 +384,94 @@ FoodSummary foodSummary(AppData data, DateTime day) {
     protein += f.protein ?? 0;
   }
   return FoodSummary(kcal, protein, followed, checked, data.meals.length, extras);
+}
+
+// ---------------------------------------------------------------------------
+// Medidas da avaliação completa
+// ---------------------------------------------------------------------------
+
+class MeasureDef {
+  final String key;
+  final String label;
+  final String unit;
+  final String group;
+  const MeasureDef(this.key, this.label, this.unit, this.group);
+}
+
+const measureGroups = ['Tronco', 'Membros', 'Dobras cutâneas', 'Bioimpedância', 'Sinais vitais'];
+
+const measureDefs = <MeasureDef>[
+  MeasureDef('torax', 'Tórax', 'cm', 'Tronco'),
+  MeasureDef('abdome', 'Abdome', 'cm', 'Tronco'),
+  MeasureDef('quadril', 'Quadril', 'cm', 'Tronco'),
+  MeasureDef('braco_e', 'Braço E', 'cm', 'Membros'),
+  MeasureDef('braco_d', 'Braço D', 'cm', 'Membros'),
+  MeasureDef('antebraco_e', 'Antebraço E', 'cm', 'Membros'),
+  MeasureDef('antebraco_d', 'Antebraço D', 'cm', 'Membros'),
+  MeasureDef('coxa_e', 'Coxa E', 'cm', 'Membros'),
+  MeasureDef('coxa_d', 'Coxa D', 'cm', 'Membros'),
+  MeasureDef('panturrilha_e', 'Panturrilha E', 'cm', 'Membros'),
+  MeasureDef('panturrilha_d', 'Panturrilha D', 'cm', 'Membros'),
+  MeasureDef('dc_torax', 'Tórax', 'mm', 'Dobras cutâneas'),
+  MeasureDef('dc_axilar', 'Axilar média', 'mm', 'Dobras cutâneas'),
+  MeasureDef('dc_triceps', 'Tríceps', 'mm', 'Dobras cutâneas'),
+  MeasureDef('dc_biceps', 'Bíceps', 'mm', 'Dobras cutâneas'),
+  MeasureDef('dc_subescapular', 'Subescapular', 'mm', 'Dobras cutâneas'),
+  MeasureDef('dc_abdominal', 'Abdominal', 'mm', 'Dobras cutâneas'),
+  MeasureDef('dc_suprailiaca', 'Supra-ilíaca', 'mm', 'Dobras cutâneas'),
+  MeasureDef('dc_coxa', 'Coxa', 'mm', 'Dobras cutâneas'),
+  MeasureDef('dc_panturrilha', 'Panturrilha', 'mm', 'Dobras cutâneas'),
+  MeasureDef('musculo_esq', 'Músculo esquelético', 'kg', 'Bioimpedância'),
+  MeasureDef('agua', 'Água corporal', '%', 'Bioimpedância'),
+  MeasureDef('pa_sis', 'Pressão sistólica', 'mmHg', 'Sinais vitais'),
+  MeasureDef('pa_dia', 'Pressão diastólica', 'mmHg', 'Sinais vitais'),
+  MeasureDef('fc', 'FC de repouso', 'bpm', 'Sinais vitais'),
+];
+
+/// Soma das dobras cutâneas registradas no dia (null se nenhuma).
+double? skinfoldSum(BodyEntry e) {
+  final v = measureDefs.where((d) => d.key.startsWith('dc_')).map((d) => e.extra[d.key]).whereType<double>();
+  if (v.isEmpty) return null;
+  return v.reduce((a, b) => a + b);
+}
+
+/// Valor de uma métrica num registro: campos fixos, medidas extras ou índices calculados.
+double? metricValue(BodyEntry e, String key, double? heightCm) {
+  switch (key) {
+    case 'peso':
+      return e.weight;
+    case 'cintura':
+      return e.waist;
+    case 'gordura':
+      return e.bodyFat;
+    case 'magra':
+      return e.leanMass;
+    case 'visceral':
+      return e.visceral;
+    case 'soma_dobras':
+      return skinfoldSum(e);
+    case 'rcq':
+      {
+        final q = e.extra['quadril'];
+        return (e.waist != null && q != null && q > 0) ? e.waist! / q : null;
+      }
+    case 'rca':
+      return (e.waist != null && heightCm != null && heightCm > 0) ? e.waist! / heightCm : null;
+    default:
+      return e.extra[key];
+  }
+}
+
+/// Primeiro e último registro de uma métrica: (primeiro, último), por data.
+({BodyEntry first, BodyEntry last, double firstValue, double lastValue})? metricRange(
+    List<BodyEntry> body, String key, double? heightCm) {
+  final withValue = body.where((e) => metricValue(e, key, heightCm) != null).toList()
+    ..sort((a, b) => a.date.compareTo(b.date));
+  if (withValue.isEmpty) return null;
+  return (
+    first: withValue.first,
+    last: withValue.last,
+    firstValue: metricValue(withValue.first, key, heightCm)!,
+    lastValue: metricValue(withValue.last, key, heightCm)!,
+  );
 }

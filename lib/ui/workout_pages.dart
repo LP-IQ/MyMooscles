@@ -541,11 +541,12 @@ class _ExerciseDialogState extends State<_ExerciseDialog> {
   late final _warm = TextEditingController(text: '${widget.existing?.warmups ?? 1}');
   late final _note = TextEditingController(text: widget.existing?.note ?? '');
   late final _alts = TextEditingController(text: (widget.existing?.alternatives ?? const <String>[]).join('\n'));
+  late final _tip = TextEditingController(text: widget.existing?.restTip ?? '');
   late bool _timed = widget.existing?.timed ?? false;
 
   @override
   void dispose() {
-    for (final c in [_name, _sets, _min, _max, _load, _warm, _note, _alts]) {
+    for (final c in [_name, _sets, _min, _max, _load, _warm, _note, _alts, _tip]) {
       c.dispose();
     }
     super.dispose();
@@ -573,6 +574,7 @@ class _ExerciseDialogState extends State<_ExerciseDialog> {
       ..warmups = clampInt(parseInt(_warm.text) ?? 0, 0, 5)
       ..timed = _timed
       ..alternatives = alts
+      ..restTip = _tip.text.trim()
       ..note = _note.text.trim();
     Navigator.pop(context, e);
   }
@@ -612,6 +614,8 @@ class _ExerciseDialogState extends State<_ExerciseDialog> {
               onChanged: (v) => setState(() => _timed = v),
             ),
             MooTextField(controller: _note, label: 'Observação'),
+            const SizedBox(height: 12),
+            MooTextField(controller: _tip, label: 'No descanso (mobilidade/postura)'),
             const SizedBox(height: 12),
             MooTextField(controller: _alts, label: 'Variações (uma por linha)', minLines: 2, maxLines: 6),
           ],
@@ -681,6 +685,7 @@ class _SessionPageState extends State<SessionPage> {
   }
 
   DateTime? _restEnd;
+  String _restTip = '';
 
   String _restLabel() {
     final d = Store.instance.data.draft;
@@ -699,7 +704,7 @@ class _SessionPageState extends State<SessionPage> {
       _restTotal = secs;
       _restLeft = secs;
     });
-    RestAlert.instance.start(secs, _restLabel());
+    RestAlert.instance.start(secs, _restTip.isEmpty ? _restLabel() : '${_restLabel()} · $_restTip');
     // Conta pelo horário de término: continua certo mesmo se o app ficar em segundo plano.
     _restTimer = Timer.periodic(const Duration(milliseconds: 500), (timer) {
       if (!mounted) {
@@ -735,6 +740,8 @@ class _SessionPageState extends State<SessionPage> {
   }
 
   void _onSetDone(Session s, ExerciseLog e) {
+    final tpl = Store.instance.templateById(s.templateId);
+    _restTip = effectiveTemplate(e, _findEx(tpl, e.exerciseId)).restTip;
     if (_complete(e)) {
       setState(() => _open = _firstIncomplete(s, after: e.exerciseId)?.exerciseId);
     }
@@ -828,6 +835,7 @@ class _SessionPageState extends State<SessionPage> {
         restLeft: _restLeft,
         restTotal: _restTotal,
         restDefault: _restDefault,
+        tip: _restTip,
         onStart: () => _startRest(),
         onAdd: () => _addRest(30),
         onStop: _stopRest,
@@ -930,6 +938,7 @@ class _BottomBar extends StatelessWidget {
   final int restLeft;
   final int restTotal;
   final int restDefault;
+  final String tip;
   final VoidCallback onStart;
   final VoidCallback onAdd;
   final VoidCallback onStop;
@@ -938,6 +947,7 @@ class _BottomBar extends StatelessWidget {
     required this.restLeft,
     required this.restTotal,
     required this.restDefault,
+    this.tip = '',
     required this.onStart,
     required this.onAdd,
     required this.onStop,
@@ -980,7 +990,12 @@ class _BottomBar extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Text(running ? 'Descanso · toque p/ parar' : 'Descanso · toque p/ iniciar',
+                                Text(
+                                    running
+                                        ? (tip.isEmpty ? 'Descanso · toque p/ parar' : tip)
+                                        : 'Descanso · toque p/ iniciar',
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
                                     style: t.body(11, weight: FontWeight.w600, color: t.timerFg)),
                                 Text(_fmt(running ? restLeft : restDefault),
                                     style: t.head(22, color: running ? t.timerFg : t.timerFg.withAlpha(150))),
@@ -1230,6 +1245,20 @@ class _ExerciseCard extends StatelessWidget {
               child: SuggestionBox(sug: sug, last: last),
             ),
             const SizedBox(height: 8),
+            if (ex.restTip.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+                child: Row(
+                  children: [
+                    Icon(Icons.self_improvement, size: 18, color: t.acc),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text('No descanso: ${ex.restTip}',
+                          style: t.body(13, weight: FontWeight.w600, color: t.acc)),
+                    ),
+                  ],
+                ),
+              ),
             _WarmupRow(log: log, onChanged: onChanged),
             for (var i = 0; i < log.sets.length; i++)
               _SetRow(

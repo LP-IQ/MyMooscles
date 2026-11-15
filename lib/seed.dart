@@ -43,6 +43,30 @@ const defaultAlternatives = <String, List<String>>{
   'Crossover (de cima para baixo)': ['Crossover de baixo para cima', 'Peck deck (voador)'],
   'Rosca bayesiana (bi-set)': ['Rosca direta na polia', 'Rosca alternada'],
   'Tríceps corda (bi-set)': ['Tríceps pulley barra V', 'Tríceps francês na polia'],
+  'Dead bug': ['Prancha', 'Prancha com toque no ombro', 'Abdominal na polia'],
+  'Face pull': ['Crucifixo inverso na polia', 'Peck deck invertido'],
+};
+
+// Postura (avaliação de 13/11): mobilidade feita no tempo de descanso, sem alongar o treino.
+const tipHipFlexor = 'Alongar flexor do quadril: 30 s cada lado';
+const tipAnkle = 'Joelho na parede (tornozelo): 10 por lado';
+const tipChinTuck = 'Chin tuck: 10 retrações de queixo';
+
+/// Dica para o descanso de cada exercício.
+const defaultRestTips = <String, String>{
+  'Leg press 45°': tipHipFlexor,
+  'Agachamento no hack': tipHipFlexor,
+  'Cadeira extensora': tipHipFlexor,
+  'Panturrilha em pé': tipAnkle,
+  'Elevação pélvica': tipHipFlexor,
+  'Leg press unilateral': tipHipFlexor,
+  'Extensora unilateral': tipHipFlexor,
+  'Panturrilha em pé ou no leg press': tipAnkle,
+  'Puxada frontal': tipChinTuck,
+  'Remada baixa unilateral na polia': tipChinTuck,
+  'Remada máquina com apoio no peito': tipChinTuck,
+  'Puxada frontal (pegada neutra)': tipChinTuck,
+  'Remada baixa (bilateral)': tipChinTuck,
 };
 
 /// Calorias e proteína aproximadas de cada refeição do cardápio-base (por horário).
@@ -65,8 +89,17 @@ ExerciseTemplate _ex(String name, int sets, int repMin, int repMax,
       startLoad: load,
       note: note,
       warmups: warmups,
+      restTip: defaultRestTips[name] ?? '',
       alternatives: List<String>.from(defaultAlternatives[name] ?? const <String>[]),
     );
+
+/// Abdominal anti-extensão: ajuda a controlar a anteversão da pelve.
+ExerciseTemplate deadBug() =>
+    _ex('Dead bug', 3, 8, 12, note: 'cada lado · lombar colada no chão', warmups: 0);
+
+/// Parte alta das costas e manguito: ajuda a postura da cabeça e dos ombros.
+ExerciseTemplate facePull() =>
+    _ex('Face pull', 2, 12, 15, note: 'puxe até a testa, cotovelos altos', warmups: 0);
 
 List<WorkoutTemplate> seedTemplates() => [
       WorkoutTemplate(code: 'A', name: 'Pernas (quadríceps)', weekday: 1, exercises: [
@@ -76,7 +109,7 @@ List<WorkoutTemplate> seedTemplates() => [
         _ex('Cadeira flexora', 3, 10, 12, load: 59),
         _ex('Adutor', 2, 12, 15, load: 82),
         _ex('Panturrilha em pé', 4, 12, 20, load: 54, note: '1 s parado embaixo'),
-        _ex('Abdominal na polia ou prancha', 3, 10, 15, warmups: 0),
+        deadBug(),
       ]),
       WorkoutTemplate(code: 'B', name: 'Empurrar (peito, ombro, tríceps)', weekday: 2, exercises: [
         _ex('Supino inclinado com halteres', 3, 6, 10, note: 'pegada neutra se o punho reclamar', warmups: 2),
@@ -107,7 +140,7 @@ List<WorkoutTemplate> seedTemplates() => [
         _ex('Extensora unilateral', 2, 12, 15, load: 18),
         _ex('Abdutor', 3, 12, 20, load: 82),
         _ex('Panturrilha em pé ou no leg press', 3, 15, 20, load: 54),
-        _ex('Abdominal na polia ou prancha', 3, 10, 15, warmups: 0),
+        deadBug(),
       ]),
       WorkoutTemplate(code: 'E', name: 'Superiores completo', weekday: 5, exercises: [
         _ex('Puxada frontal (pegada neutra)', 3, 8, 12, load: 45, warmups: 2),
@@ -116,6 +149,7 @@ List<WorkoutTemplate> seedTemplates() => [
         _ex('Desenvolvimento (máquina ou halteres)', 3, 8, 12, load: 14),
         _ex('Crossover (de cima para baixo)', 2, 12, 15, load: 14),
         _ex('Elevação lateral', 3, 12, 20, note: 'dropset na última série'),
+        facePull(),
         _ex('Rosca bayesiana (bi-set)', 2, 10, 15, load: 18, note: 'emende com o tríceps'),
         _ex('Tríceps corda (bi-set)', 2, 10, 15, load: 14, warmups: 0),
       ]),
@@ -173,5 +207,32 @@ void migrate(AppData data) {
       }
     }
     data.version = 2;
+  }
+  if (data.version < 3) {
+    for (final t in data.templates) {
+      for (final e in t.exercises) {
+        if (e.restTip.isEmpty) e.restTip = defaultRestTips[e.name] ?? '';
+        if (e.name == 'Abdominal na polia ou prancha') {
+          final d = deadBug();
+          e
+            ..name = d.name
+            ..repMin = d.repMin
+            ..repMax = d.repMax
+            ..note = d.note
+            ..timed = false
+            ..alternatives = d.alternatives;
+        }
+      }
+      final isUpper = t.code == 'E' || t.name.toLowerCase().contains('superiores');
+      if (isUpper && !t.exercises.any((e) => e.name == 'Face pull')) {
+        final i = t.exercises.indexWhere((e) => e.name.contains('bi-set'));
+        if (i >= 0) {
+          t.exercises.insert(i, facePull());
+        } else {
+          t.exercises.add(facePull());
+        }
+      }
+    }
+    data.version = 3;
   }
 }

@@ -72,6 +72,7 @@ class ExerciseTemplate {
   List<String> alternatives; // variações que podem substituir este exercício
   bool timed; // medido em segundos (prancha, isometria)
   int warmups; // séries de aquecimento sugeridas
+  String restTip; // o que fazer no descanso (mobilidade/postura)
 
   ExerciseTemplate({
     String? id,
@@ -84,6 +85,7 @@ class ExerciseTemplate {
     List<String>? alternatives,
     this.timed = false,
     this.warmups = 1,
+    this.restTip = '',
   })  : id = id ?? newId(),
         alternatives = alternatives ?? [];
 
@@ -98,6 +100,7 @@ class ExerciseTemplate {
         'alternatives': alternatives,
         'timed': timed,
         'warmups': warmups,
+        'restTip': restTip,
       };
 
   factory ExerciseTemplate.fromJson(Map<String, dynamic> j) => ExerciseTemplate(
@@ -111,6 +114,7 @@ class ExerciseTemplate {
         alternatives: _toStrings(j['alternatives']),
         timed: (j['timed'] as bool?) ?? false,
         warmups: (j['warmups'] as num?)?.toInt() ?? 1,
+        restTip: (j['restTip'] as String?) ?? '',
       );
 }
 
@@ -284,6 +288,7 @@ class BodyEntry {
   double? leanMass;
   double? visceral;
   String note;
+  Map<String, double> extra; // medidas da avaliação completa (chaves em logic.dart → measureDefs)
 
   BodyEntry({
     String? id,
@@ -294,7 +299,9 @@ class BodyEntry {
     this.leanMass,
     this.visceral,
     this.note = '',
-  }) : id = id ?? newId();
+    Map<String, double>? extra,
+  })  : id = id ?? newId(),
+        extra = extra ?? {};
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -305,6 +312,7 @@ class BodyEntry {
         'leanMass': leanMass,
         'visceral': visceral,
         'note': note,
+        'extra': extra,
       };
 
   factory BodyEntry.fromJson(Map<String, dynamic> j) => BodyEntry(
@@ -316,6 +324,7 @@ class BodyEntry {
         leanMass: _toDouble(j['leanMass']),
         visceral: _toDouble(j['visceral']),
         note: (j['note'] as String?) ?? '',
+        extra: ((j['extra'] as Map?) ?? {}).map((k, v) => MapEntry(k as String, (v as num).toDouble())),
       );
 }
 
@@ -396,7 +405,7 @@ class AppData {
   Session? draft;
 
   AppData({
-    this.version = 2,
+    this.version = 3,
     required this.profile,
     required this.templates,
     required this.sessions,
